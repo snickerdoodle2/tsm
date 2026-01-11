@@ -1,6 +1,11 @@
-use tsm::list_sessions;
+use anyhow::Result;
+use tsm::tui;
 
-fn main() {
-    let sessions = list_sessions().unwrap();
-    dbg!(sessions);
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mut terminal = ratatui::init();
+    let mut app = tui::App::new()?;
+    let res = app.run(&mut terminal).await;
+    ratatui::restore();
+    res
 }

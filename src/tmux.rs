@@ -13,13 +13,13 @@ pub enum TmuxError {
 }
 
 #[derive(Debug)]
-pub struct Session {
+pub struct TmuxSession {
     name: String,
     created: DateTime<Utc>,
     attached: u8,
 }
 
-impl Session {
+impl TmuxSession {
     fn from_line(line: &str) -> Option<Self> {
         let mut line = line.split(";");
         let name = line.next()?.into();
@@ -34,7 +34,7 @@ impl Session {
     }
 }
 
-pub fn list_sessions() -> Result<Vec<Session>, TmuxError> {
+pub fn list_sessions() -> Result<Vec<TmuxSession>, TmuxError> {
     let output = Command::new("tmux")
         .arg("list-sessions")
         .arg("-F")
@@ -53,5 +53,5 @@ pub fn list_sessions() -> Result<Vec<Session>, TmuxError> {
     }
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    Ok(stdout.lines().filter_map(Session::from_line).collect())
+    Ok(stdout.lines().filter_map(TmuxSession::from_line).collect())
 }
