@@ -1,3 +1,6 @@
+use tsm::list_sessions;
+
 fn main() {
-    println!("Hello, world!");
+    let sessions = list_sessions().unwrap();
+    dbg!(sessions);
 }
