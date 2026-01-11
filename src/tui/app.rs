@@ -7,22 +7,43 @@ use ratatui::{
     widgets::Block,
 };
 
-use crate::tui::{
-    event::{AppEvent, Event, EventHandler},
-    ui::Spinner,
+use crate::{
+    TmuxSession,
+    tui::{
+        event::{AppEvent, Event, EventHandler},
+        ui::views::SessionList,
+    },
 };
 
+#[derive(Default)]
 pub struct AppState {
     should_quit: bool,
     pub frame_count: usize,
+    pub sessions: Option<Vec<TmuxSession>>,
+    pub selected_session: usize,
 }
 
 impl AppState {
     fn new() -> Result<Self> {
-        Ok(Self {
-            should_quit: false,
-            frame_count: 0,
-        })
+        Ok(Default::default())
+    }
+
+    fn cycle_next(&mut self) {
+        if let Some(sessions) = &self.sessions {
+            self.selected_session = (self.selected_session + 1) % sessions.len();
+        }
+    }
+
+    fn cycle_prev(&mut self) {
+        if let Some(sessions) = &self.sessions {
+            let new = if self.selected_session == 0 {
+                sessions.len() - 1
+            } else {
+                self.selected_session - 1
+            };
+
+            self.selected_session = new;
+        }
     }
 }
 
@@ -66,6 +87,12 @@ impl App {
             KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
                 self.exit()
             }
+            KeyCode::Char('j') => {
+                self.state.cycle_next();
+            }
+            KeyCode::Char('k') => {
+                self.state.cycle_prev();
+            }
             _ => {}
         }
     }
@@ -73,7 +100,7 @@ impl App {
     fn handle_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Quit => self.state.should_quit = true,
-            AppEvent::TmuxSessions(sessions) => {}
+            AppEvent::TmuxSessions(sessions) => self.state.sessions = sessions,
         }
     }
 
@@ -88,6 +115,19 @@ impl App {
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
     }
+
+    fn title(&self) -> &'static str {
+        " Sessions "
+    }
+
+    #[rustfmt::skip]
+    fn keybinds(&self) -> Line<'_> {
+        Line::from(vec![
+            " Up ".into(), "<K> ".blue().bold(),
+            "Down ".into(), "<J> ".blue().bold(),
+            "Quit ".into(), "<Q> ".blue().bold()
+        ])
+    }
 }
 
 impl Widget for &App {
@@ -95,17 +135,16 @@ impl Widget for &App {
     where
         Self: Sized,
     {
-        let title = Line::from(" Tmux Session Manager ".bold());
-        let instructions = Line::from(vec![" Quit ".into(), "<Q> ".blue().bold()]);
+        let title = Line::from(self.title().bold());
 
         let block = Block::bordered()
             .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
+            .title_bottom(self.keybinds().centered())
+            .border_set(border::ROUNDED);
 
         let inner = block.inner(area);
         block.render(area, buf);
 
-        Spinner(self.state.frame_count).render(inner, buf);
+        SessionList.render(inner, buf, &self.state);
     }
 }

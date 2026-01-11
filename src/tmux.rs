@@ -20,6 +20,12 @@ pub struct TmuxSession {
 }
 
 impl TmuxSession {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl TmuxSession {
     fn from_line(line: &str) -> Option<Self> {
         let mut line = line.split(";");
         let name = line.next()?.into();
