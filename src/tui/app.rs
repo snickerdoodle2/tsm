@@ -2,9 +2,10 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    layout::Spacing,
     prelude::*,
-    symbols::border,
-    widgets::Block,
+    symbols::merge::MergeStrategy,
+    widgets::{Block, BorderType},
 };
 
 use crate::{
@@ -116,8 +117,9 @@ impl App {
         frame.render_widget(self, frame.area());
     }
 
-    fn title(&self) -> &'static str {
-        " Sessions "
+    fn title(&self) -> Line<'_> {
+        let title = " Sessions ";
+        Line::from(title.bold())
     }
 
     #[rustfmt::skip]
@@ -128,23 +130,56 @@ impl App {
             "Quit ".into(), "<Q> ".blue().bold()
         ])
     }
+
+    fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
+        let area = area
+            .centered_horizontally(Constraint::Length(60))
+            .centered_vertically(Constraint::Length(30));
+
+        let block = Block::default()
+            .title_top(self.title().centered())
+            .title_bottom(self.keybinds().centered());
+
+        block.render(area, buf);
+
+        let outer_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
+            .spacing(Spacing::Overlap(1))
+            .split(area);
+
+        let inner_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Fill(1); 2])
+            .spacing(Spacing::Overlap(1))
+            .split(outer_layout[1]);
+
+        let left_block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .merge_borders(MergeStrategy::Fuzzy);
+        let left_area = left_block.inner(outer_layout[0]);
+
+        let top_right_block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .merge_borders(MergeStrategy::Fuzzy);
+        let top_right_area = top_right_block.inner(inner_layout[0]);
+
+        let bottom_right_block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
+        let bottom_right_area = bottom_right_block.inner(inner_layout[1]);
+
+        left_block.render(outer_layout[0], buf);
+        top_right_block.render(inner_layout[0], buf);
+        bottom_right_block.render(inner_layout[1], buf);
+
+        (left_area, top_right_area, bottom_right_area)
+    }
 }
 
 impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        let title = Line::from(self.title().bold());
-
-        let block = Block::bordered()
-            .title(title.centered())
-            .title_bottom(self.keybinds().centered())
-            .border_set(border::ROUNDED);
-
-        let inner = block.inner(area);
-        block.render(area, buf);
-
-        SessionList.render(inner, buf, &self.state);
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let (left_area, _, _) = self.layout(area, buf);
+        SessionList.render(left_area, buf, &self.state);
     }
 }

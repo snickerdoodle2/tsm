@@ -29,7 +29,7 @@ impl SessionList {
             .map(|(i, s)| {
                 let item = ListItem::from(s);
                 if i == state.selected_session {
-                    item.bg((255, 255, 0))
+                    item.bg((255, 255, 255))
                 } else {
                     item
                 }
