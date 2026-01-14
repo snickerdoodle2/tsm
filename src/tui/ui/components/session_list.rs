@@ -1,4 +1,5 @@
 use ratatui::{
+    prelude::*,
     style::Stylize,
     text::Line,
     widgets::{List, ListItem, Widget},
@@ -12,12 +13,7 @@ use crate::{
 pub struct SessionList;
 
 impl SessionList {
-    pub fn render(
-        self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        state: &AppState,
-    ) {
+    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState) {
         let Some(sessions) = &state.sessions else {
             self.render_no_list(area, buf, state);
             return;

@@ -12,7 +12,7 @@ use crate::{
     TmuxSession,
     tui::{
         event::{AppEvent, Event, EventHandler},
-        ui::views::SessionList,
+        ui::components::{SessionDetails, SessionList},
     },
 };
 
@@ -179,7 +179,8 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let (left_area, _, _) = self.layout(area, buf);
+        let (left_area, top_right_area, _) = self.layout(area, buf);
         SessionList.render(left_area, buf, &self.state);
+        SessionDetails.render(top_right_area, buf, &self.state);
     }
 }

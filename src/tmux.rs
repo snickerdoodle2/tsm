@@ -23,6 +23,14 @@ impl TmuxSession {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn created(&self) -> &DateTime<Utc> {
+        &self.created
+    }
+
+    pub fn attached(&self) -> &u8 {
+        &self.attached
+    }
 }
 
 impl TmuxSession {
