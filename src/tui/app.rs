@@ -116,12 +116,6 @@ impl App {
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
     }
-
-    fn title(&self) -> Line<'_> {
-        let title = " Sessions ";
-        Line::from(title.bold())
-    }
-
     #[rustfmt::skip]
     fn keybinds(&self) -> Line<'_> {
         Line::from(vec![
@@ -133,18 +127,16 @@ impl App {
 
     fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
         let area = area
-            .centered_horizontally(Constraint::Length(60))
+            .centered_horizontally(Constraint::Length(80))
             .centered_vertically(Constraint::Length(30));
 
-        let block = Block::default()
-            .title_top(self.title().centered())
-            .title_bottom(self.keybinds().centered());
+        let block = Block::default().title_bottom(self.keybinds().centered());
 
         block.render(area, buf);
 
         let outer_layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
+            .constraints(vec![Constraint::Fill(2), Constraint::Fill(3)])
             .spacing(Spacing::Overlap(1))
             .split(area);
 
@@ -156,11 +148,13 @@ impl App {
 
         let left_block = Block::bordered()
             .border_type(BorderType::Rounded)
+            .title_top(Line::from("Sessions").bold())
             .merge_borders(MergeStrategy::Fuzzy);
         let left_area = left_block.inner(outer_layout[0]);
 
         let top_right_block = Block::bordered()
             .border_type(BorderType::Rounded)
+            .title_top(Line::from("Details").bold().right_aligned())
             .merge_borders(MergeStrategy::Fuzzy);
         let top_right_area = top_right_block.inner(inner_layout[0]);
 
