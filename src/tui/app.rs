@@ -5,11 +5,11 @@ use ratatui::{
     layout::Spacing,
     prelude::*,
     symbols::merge::MergeStrategy,
-    widgets::{Block, BorderType},
+    widgets::{Block, BorderType, Paragraph},
 };
 
 use crate::{
-    TmuxSession,
+    TmuxSession, select_session,
     tui::{
         event::{AppEvent, Event, EventHandler},
         ui::components::{SessionDetails, SessionList},
@@ -44,6 +44,20 @@ impl AppState {
             };
 
             self.selected_session = new;
+        }
+    }
+
+    fn select_session(&mut self) {
+        let session = self
+            .sessions
+            .as_ref()
+            .and_then(|s| s.get(self.selected_session));
+
+        if let Some(session) = session {
+            match select_session(session) {
+                Ok(_) => self.should_quit = true,
+                Err(_) => {}
+            }
         }
     }
 }
@@ -94,6 +108,9 @@ impl App {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.state.cycle_prev();
             }
+            KeyCode::Enter => {
+                self.state.select_session();
+            }
             _ => {}
         }
     }
@@ -121,6 +138,7 @@ impl App {
         Line::from(vec![
             " Up ".into(), "<K> ".blue().bold(),
             "Down ".into(), "<J> ".blue().bold(),
+            "Switch ".into(), "<Enter> ".blue().bold(),
             "Quit ".into(), "<Q> ".blue().bold()
         ])
     }
@@ -173,8 +191,9 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let (left_area, top_right_area, _) = self.layout(area, buf);
+        let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
         SessionList.render(left_area, buf, &self.state);
         SessionDetails.render(top_right_area, buf, &self.state);
+        Paragraph::new(format!("{}", self.state.frame_count)).render(bottom_right_area, buf);
     }
 }

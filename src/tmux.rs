@@ -48,6 +48,24 @@ impl TmuxSession {
     }
 }
 
+pub fn select_session(session: &TmuxSession) -> Result<(), TmuxError> {
+    let output = Command::new("tmux")
+        .arg("switch-client")
+        .arg("-t")
+        .arg(&session.name)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(TmuxError::TmuxError(format!(
+            "tmux switch-client: {}",
+            stderr.trim()
+        )))
+    } else {
+        Ok(())
+    }
+}
+
 pub fn list_sessions() -> Result<Vec<TmuxSession>, TmuxError> {
     let output = Command::new("tmux")
         .arg("list-sessions")
