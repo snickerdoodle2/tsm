@@ -88,10 +88,10 @@ impl App {
             KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
                 self.exit()
             }
-            KeyCode::Char('j') => {
+            KeyCode::Down | KeyCode::Char('j') => {
                 self.state.cycle_next();
             }
-            KeyCode::Char('k') => {
+            KeyCode::Up | KeyCode::Char('k') => {
                 self.state.cycle_prev();
             }
             _ => {}
