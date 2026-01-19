@@ -48,6 +48,27 @@ impl TmuxSession {
     }
 }
 
+pub fn rename_session(session: &mut TmuxSession, new_name: &str) -> Result<(), TmuxError> {
+    let output = Command::new("tmux")
+        .arg("rename-session")
+        .arg("-t")
+        .arg(&session.name)
+        .arg(new_name)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(TmuxError::TmuxError(format!(
+            "tmux rename-session: {}",
+            stderr.trim()
+        )))
+    } else {
+        session.name.clear();
+        session.name.push_str(new_name);
+        Ok(())
+    }
+}
+
 pub fn select_session(session: &TmuxSession) -> Result<(), TmuxError> {
     let output = Command::new("tmux")
         .arg("switch-client")

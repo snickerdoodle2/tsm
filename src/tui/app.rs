@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    TmuxSession, select_session,
+    TmuxSession, rename_session, select_session,
     tui::{
         event::{AppEvent, Event, EventHandler},
         ui::components::{SessionDetails, SessionList},
@@ -22,6 +22,8 @@ pub struct AppState {
     pub frame_count: usize,
     pub sessions: Option<Vec<TmuxSession>>,
     pub selected_session: usize,
+    pub op_buffer: String,
+    pub buffer_cursor: usize,
 }
 
 impl AppState {
@@ -48,23 +50,100 @@ impl AppState {
     }
 
     fn select_session(&mut self) {
-        let session = self
-            .sessions
-            .as_ref()
-            .and_then(|s| s.get(self.selected_session));
-
-        if let Some(session) = session {
+        if let Some(session) = self.current_session() {
             match select_session(session) {
                 Ok(_) => self.should_quit = true,
                 Err(_) => {}
             }
         }
     }
+
+    fn current_session(&self) -> Option<&TmuxSession> {
+        self.sessions
+            .as_ref()
+            .and_then(|s| s.get(self.selected_session))
+    }
+
+    fn current_session_mut(&mut self) -> Option<&mut TmuxSession> {
+        self.sessions
+            .as_mut()
+            .and_then(|s| s.get_mut(self.selected_session))
+    }
+
+    fn set_op_buffer(&mut self, s: &str) {
+        self.op_buffer.clear();
+        self.op_buffer.push_str(s);
+        self.buffer_cursor = s.chars().count();
+    }
+
+    fn insert_buffer(&mut self, c: char) {
+        let idx = self.byte_index();
+        self.op_buffer.insert(idx, c);
+        self.move_cursor_right();
+    }
+
+    fn remove_char(&mut self) {
+        if self.buffer_cursor == 0 {
+            return;
+        }
+        self.buffer_cursor -= 1;
+
+        let byte_pos = self.byte_index();
+
+        self.op_buffer.remove(byte_pos);
+    }
+
+    fn remove_till_start(&mut self) {
+        if self.buffer_cursor == 0 {
+            return;
+        }
+        let byte_pos = self.byte_index();
+        self.buffer_cursor = 0;
+
+        _ = self.op_buffer.drain(0..byte_pos);
+    }
+
+    fn move_cursor_left(&mut self) {
+        let new_idx = self.buffer_cursor.saturating_sub(1);
+        self.buffer_cursor = self.clamp_cursor(new_idx);
+    }
+
+    fn move_cursor_right(&mut self) {
+        let new_idx = self.buffer_cursor.saturating_add(1);
+        self.buffer_cursor = self.clamp_cursor(new_idx);
+    }
+
+    fn move_cursor_start(&mut self) {
+        self.buffer_cursor = 0;
+    }
+
+    fn move_cursor_end(&mut self) {
+        self.buffer_cursor = self.op_buffer.chars().count();
+    }
+
+    fn clamp_cursor(&self, pos: usize) -> usize {
+        pos.clamp(0, self.op_buffer.chars().count())
+    }
+
+    fn byte_index(&self) -> usize {
+        self.op_buffer
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.buffer_cursor)
+            .unwrap_or(self.op_buffer.len())
+    }
+}
+
+#[derive(Debug)]
+enum View {
+    Normal,
+    Rename,
 }
 
 pub struct App {
     state: AppState,
     events: EventHandler,
+    view: View,
 }
 
 impl App {
@@ -72,6 +151,7 @@ impl App {
         Ok(Self {
             state: AppState::new()?,
             events: EventHandler::new(),
+            view: View::Normal,
         })
     }
 
@@ -97,6 +177,34 @@ impl App {
     }
 
     fn handle_key_event(&mut self, event: KeyEvent) {
+        match self.view {
+            View::Normal => self.handle_normal_mode_key_event(event),
+            View::Rename => self.handle_rename_mode_key_event(event),
+        }
+    }
+
+    fn handle_rename_mode_key_event(&mut self, event: KeyEvent) {
+        match event.code {
+            KeyCode::Esc => self.view = View::Normal,
+            KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.move_cursor_start();
+            }
+            KeyCode::Char('e') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.move_cursor_end();
+            }
+            KeyCode::Char('w') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.remove_till_start();
+            }
+            KeyCode::Char(c) => self.state.insert_buffer(c),
+            KeyCode::Backspace => self.state.remove_char(),
+            KeyCode::Left => self.state.move_cursor_left(),
+            KeyCode::Right => self.state.move_cursor_right(),
+            KeyCode::Enter => self.rename_session(),
+            _ => {}
+        }
+    }
+
+    fn handle_normal_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Char('q') => self.exit(),
             KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
@@ -110,6 +218,9 @@ impl App {
             }
             KeyCode::Enter => {
                 self.state.select_session();
+            }
+            KeyCode::Char('r') => {
+                self.rename_mode();
             }
             _ => {}
         }
@@ -126,21 +237,56 @@ impl App {
         self.state.frame_count = self.state.frame_count.wrapping_add(1);
     }
 
+    fn rename_mode(&mut self) {
+        let name = {
+            let Some(session) = self.state.current_session() else {
+                return;
+            };
+            session.name().to_string()
+        };
+
+        self.state.set_op_buffer(&name);
+        self.view = View::Rename;
+    }
+
+    fn rename_session(&mut self) {
+        // FIXME:
+        let new_name = self.state.op_buffer.to_string();
+        let Some(session) = self.state.current_session_mut() else {
+            return;
+        };
+
+        if let Ok(()) = rename_session(session, &new_name) {
+            self.view = View::Normal;
+        }
+    }
+
     fn exit(&mut self) {
         self.events.send(AppEvent::Quit);
     }
 
     fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
+        self.render(frame.area(), frame);
     }
+
     #[rustfmt::skip]
     fn keybinds(&self) -> Line<'_> {
-        Line::from(vec![
-            " Up ".into(), "<K> ".blue().bold(),
-            "Down ".into(), "<J> ".blue().bold(),
-            "Switch ".into(), "<Enter> ".blue().bold(),
-            "Quit ".into(), "<Q> ".blue().bold()
-        ])
+        match self.view {
+            View::Normal => {
+                Line::from(vec![
+                    " Up ".into(), "<K> ".blue().bold(),
+                    "Down ".into(), "<J> ".blue().bold(),
+                    "Switch ".into(), "<Enter> ".blue().bold(),
+                    "Quit ".into(), "<Q> ".blue().bold()
+                ])
+            }
+            View::Rename => {
+                Line::from(vec![
+                    " Abort ".into(), "<Esc> ".blue().bold(),
+                    "Rename ".into(), "<Enter> ".blue().bold(),
+                ])
+            },
+        }
     }
 
     fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
@@ -187,13 +333,38 @@ impl App {
 
         (left_area, top_right_area, bottom_right_area)
     }
-}
 
-impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, frame: &mut Frame) {
+        let buf = frame.buffer_mut();
         let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
         SessionList.render(left_area, buf, &self.state);
         SessionDetails.render(top_right_area, buf, &self.state);
-        Paragraph::new(format!("{}", self.state.frame_count)).render(bottom_right_area, buf);
+
+        match self.view {
+            View::Normal => {
+                Paragraph::new(format!(
+                    "{:?} {} {} {}",
+                    self.view,
+                    self.state.op_buffer,
+                    self.state.buffer_cursor,
+                    self.state.frame_count
+                ))
+                .render(bottom_right_area, buf);
+            }
+            View::Rename => {
+                let input_area = Layout::vertical([Constraint::Length(1)])
+                    .horizontal_margin(1)
+                    .split(bottom_right_area)[0];
+
+                let input = Paragraph::new(self.state.op_buffer.as_str())
+                    .style(Style::default().bg(Color::Gray));
+
+                input.render(input_area, buf);
+                frame.set_cursor_position(Position::new(
+                    input_area.x + self.state.buffer_cursor as u16,
+                    input_area.y,
+                ));
+            }
+        }
     }
 }
