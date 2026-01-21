@@ -280,6 +280,7 @@ impl App {
 
         if let Ok(_) = TmuxSession::create(&name) {
             self.view = View::Normal;
+            self.events.request_refetch();
         }
     }
 
