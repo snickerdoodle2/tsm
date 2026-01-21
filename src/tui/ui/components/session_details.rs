@@ -1,15 +1,11 @@
 use ratatui::{layout::Flex, prelude::*};
 
-use crate::tui::app::AppState;
+use crate::tui::state::AppState;
 pub struct SessionDetails;
 
 impl SessionDetails {
     pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState) {
-        let Some(session) = state
-            .sessions
-            .as_ref()
-            .and_then(|s| s.get(state.selected_session))
-        else {
+        let Some(session) = state.current_session() else {
             return;
         };
 

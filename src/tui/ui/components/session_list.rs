@@ -7,14 +7,14 @@ use ratatui::{
 
 use crate::{
     TmuxSession,
-    tui::{app::AppState, ui::Spinner},
+    tui::{state::AppState, ui::Spinner},
 };
 
 pub struct SessionList;
 
 impl SessionList {
     pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState) {
-        let Some(sessions) = &state.sessions else {
+        let Some(sessions) = state.sessions() else {
             self.render_no_list(area, buf, state);
             return;
         };
@@ -24,7 +24,7 @@ impl SessionList {
             .enumerate()
             .map(|(i, s)| {
                 let item = ListItem::from(s);
-                if i == state.selected_session {
+                if i == state.selected_session() {
                     item.bg((255, 255, 255))
                 } else {
                     item
@@ -43,7 +43,7 @@ impl SessionList {
         buf: &mut ratatui::prelude::Buffer,
         state: &AppState,
     ) {
-        Spinner(state.frame_count).render(area, buf);
+        Spinner(state.frame_count()).render(area, buf);
     }
 }
 
