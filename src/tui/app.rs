@@ -278,7 +278,7 @@ impl App {
         // FIXME:
         let name = self.state.op_buffer.to_string();
 
-        if let Ok(()) = create_session(&name) {
+        if let Ok(_) = create_session(&name) {
             self.view = View::Normal;
         }
     }

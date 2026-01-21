@@ -73,6 +73,7 @@ pub fn create_session(name: &str) -> Result<(), TmuxError> {
     // TODO: starting directory
     let output = Command::new("tmux")
         .arg("new-session")
+        .arg("-d")
         .arg("-s")
         .arg(name)
         .output()?;
@@ -80,7 +81,7 @@ pub fn create_session(name: &str) -> Result<(), TmuxError> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(TmuxError::TmuxError(format!(
-            "tmux list-sessions: {}",
+            "tmux new-session: {}",
             stderr.trim()
         )))
     } else {
