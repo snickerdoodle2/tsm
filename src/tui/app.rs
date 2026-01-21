@@ -134,12 +134,25 @@ impl App {
     fn keybinds(&self) -> Line<'_> {
         match self.state.view() {
             View::Normal => {
-                Line::from(vec![
+                let mut items = vec![
                     " Up ".into(), "<K> ".blue().bold(),
                     "Down ".into(), "<J> ".blue().bold(),
+                    "Create ".into(), "<N> ".blue().bold(),
+                    "Rename ".into(), "<R> ".blue().bold(),
+                ];
+
+                if self.state.current_session().is_some_and(|s| s.attached() == 0) {
+                    items.extend(vec![
+                        "Kill ".into(), "<D> ".blue().bold(),
+                    ]);
+                }
+
+                items.extend(vec![
                     "Switch ".into(), "<Enter> ".blue().bold(),
                     "Quit ".into(), "<Q> ".blue().bold()
-                ])
+                ]);
+
+                Line::from(items)
             }
             View::Rename => {
                 Line::from(vec![
