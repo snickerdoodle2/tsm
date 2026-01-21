@@ -12,7 +12,7 @@ pub enum TmuxError {
     TmuxError(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TmuxSession {
     name: String,
     created: DateTime<Utc>,
@@ -28,12 +28,10 @@ impl TmuxSession {
         &self.created
     }
 
-    pub fn attached(&self) -> &u8 {
-        &self.attached
+    pub fn attached(&self) -> u8 {
+        self.attached
     }
-}
 
-impl TmuxSession {
     pub fn list() -> Result<Vec<Self>, TmuxError> {
         let output = Command::new("tmux")
             .arg("list-sessions")
@@ -107,6 +105,24 @@ impl TmuxSession {
             let stderr = String::from_utf8_lossy(&output.stderr);
             Err(TmuxError::TmuxError(format!(
                 "tmux switch-client: {}",
+                stderr.trim()
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn delete(&self) -> Result<(), TmuxError> {
+        let output = Command::new("tmux")
+            .arg("kill-session")
+            .arg("-t")
+            .arg(&self.name)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(TmuxError::TmuxError(format!(
+                "tmux kill-session: {}",
                 stderr.trim()
             )))
         } else {

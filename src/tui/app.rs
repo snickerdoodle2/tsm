@@ -101,6 +101,10 @@ impl App {
             KeyCode::Char('n') => {
                 self.state.create_mode();
             }
+            KeyCode::Char('d') => {
+                // TODO: confirmation
+                self.state.delete_session();
+            }
             _ => {}
         }
     }

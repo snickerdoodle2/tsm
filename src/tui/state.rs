@@ -137,6 +137,27 @@ impl AppState {
         }
     }
 
+    pub fn delete_session(&mut self) {
+        // FIXME: probably it's a good idea to return it with index here
+        let session = {
+            let Some(session) = self.current_session() else {
+                return;
+            };
+
+            session.clone()
+        };
+
+        if session.attached() > 0 {
+            return;
+        }
+
+        if session.delete().is_ok() {
+            if let Some(rest) = self.sessions.as_mut() {
+                rest.retain(|s| s.name() != session.name());
+            }
+        }
+    }
+
     pub fn current_session(&self) -> Option<&TmuxSession> {
         self.sessions
             .as_ref()
