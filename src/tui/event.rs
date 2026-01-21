@@ -6,7 +6,7 @@ use futures::{FutureExt, StreamExt};
 use ratatui::crossterm::event::Event as CrosstermEvent;
 use tokio::sync::mpsc;
 
-use crate::{TmuxSession, tmux};
+use crate::TmuxSession;
 
 pub enum Event {
     Tick,
@@ -71,7 +71,7 @@ impl TmuxTask {
     }
 
     fn fetch_sessions(&self) {
-        let res = tmux::list_sessions().ok();
+        let res = TmuxSession::list().ok();
         let _ = self.0.send(Event::App(AppEvent::TmuxSessions(res)));
     }
 }

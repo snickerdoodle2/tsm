@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    TmuxSession, create_session, rename_session, select_session,
+    TmuxSession,
     tui::{
         event::{AppEvent, Event, EventHandler},
         ui::components::{SessionDetails, SessionList},
@@ -51,7 +51,7 @@ impl AppState {
 
     fn select_session(&mut self) {
         if let Some(session) = self.current_session() {
-            match select_session(session) {
+            match session.select() {
                 Ok(_) => self.should_quit = true,
                 Err(_) => {}
             }
@@ -269,7 +269,7 @@ impl App {
             return;
         };
 
-        if let Ok(()) = rename_session(session, &new_name) {
+        if let Ok(()) = session.rename(&new_name) {
             self.view = View::Normal;
         }
     }
@@ -278,7 +278,7 @@ impl App {
         // FIXME:
         let name = self.state.op_buffer.to_string();
 
-        if let Ok(_) = create_session(&name) {
+        if let Ok(_) = TmuxSession::create(&name) {
             self.view = View::Normal;
         }
     }
