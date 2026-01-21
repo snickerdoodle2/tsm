@@ -69,6 +69,25 @@ pub fn rename_session(session: &mut TmuxSession, new_name: &str) -> Result<(), T
     }
 }
 
+pub fn create_session(name: &str) -> Result<(), TmuxError> {
+    // TODO: starting directory
+    let output = Command::new("tmux")
+        .arg("new-session")
+        .arg("-s")
+        .arg(name)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(TmuxError::TmuxError(format!(
+            "tmux list-sessions: {}",
+            stderr.trim()
+        )))
+    } else {
+        Ok(())
+    }
+}
+
 pub fn select_session(session: &TmuxSession) -> Result<(), TmuxError> {
     let output = Command::new("tmux")
         .arg("switch-client")

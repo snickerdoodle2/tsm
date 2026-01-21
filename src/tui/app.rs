@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    TmuxSession, rename_session, select_session,
+    TmuxSession, create_session, rename_session, select_session,
     tui::{
         event::{AppEvent, Event, EventHandler},
         ui::components::{SessionDetails, SessionList},
@@ -138,6 +138,7 @@ impl AppState {
 enum View {
     Normal,
     Rename,
+    Create,
 }
 
 pub struct App {
@@ -179,11 +180,11 @@ impl App {
     fn handle_key_event(&mut self, event: KeyEvent) {
         match self.view {
             View::Normal => self.handle_normal_mode_key_event(event),
-            View::Rename => self.handle_rename_mode_key_event(event),
+            View::Rename | View::Create => self.handle_input_mode_key_event(event),
         }
     }
 
-    fn handle_rename_mode_key_event(&mut self, event: KeyEvent) {
+    fn handle_input_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Esc => self.view = View::Normal,
             KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
@@ -199,7 +200,11 @@ impl App {
             KeyCode::Backspace => self.state.remove_char(),
             KeyCode::Left => self.state.move_cursor_left(),
             KeyCode::Right => self.state.move_cursor_right(),
-            KeyCode::Enter => self.rename_session(),
+            KeyCode::Enter => match self.view {
+                View::Rename => self.rename_session(),
+                View::Create => self.create_session(),
+                View::Normal => unreachable!(),
+            },
             _ => {}
         }
     }
@@ -221,6 +226,9 @@ impl App {
             }
             KeyCode::Char('r') => {
                 self.rename_mode();
+            }
+            KeyCode::Char('n') => {
+                self.create_mode();
             }
             _ => {}
         }
@@ -249,6 +257,11 @@ impl App {
         self.view = View::Rename;
     }
 
+    fn create_mode(&mut self) {
+        self.state.set_op_buffer("");
+        self.view = View::Create;
+    }
+
     fn rename_session(&mut self) {
         // FIXME:
         let new_name = self.state.op_buffer.to_string();
@@ -257,6 +270,15 @@ impl App {
         };
 
         if let Ok(()) = rename_session(session, &new_name) {
+            self.view = View::Normal;
+        }
+    }
+
+    fn create_session(&mut self) {
+        // FIXME:
+        let name = self.state.op_buffer.to_string();
+
+        if let Ok(()) = create_session(&name) {
             self.view = View::Normal;
         }
     }
@@ -284,6 +306,12 @@ impl App {
                 Line::from(vec![
                     " Abort ".into(), "<Esc> ".blue().bold(),
                     "Rename ".into(), "<Enter> ".blue().bold(),
+                ])
+            },
+            View::Create => {
+                Line::from(vec![
+                    " Abort ".into(), "<Esc> ".blue().bold(),
+                    "Create ".into(), "<Enter> ".blue().bold(),
                 ])
             },
         }
@@ -351,7 +379,7 @@ impl App {
                 ))
                 .render(bottom_right_area, buf);
             }
-            View::Rename => {
+            View::Rename | View::Create => {
                 let input_area = Layout::vertical([Constraint::Length(1)])
                     .horizontal_margin(1)
                     .split(bottom_right_area)[0];
