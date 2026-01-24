@@ -22,14 +22,7 @@ impl SessionList {
         let items: Vec<_> = sessions
             .iter()
             .enumerate()
-            .map(|(i, s)| {
-                let item = ListItem::from(s);
-                if i == state.selected_session() {
-                    item.bg((255, 255, 255))
-                } else {
-                    item
-                }
-            })
+            .map(|(i, s)| render_item(s, i, state.selected_session()))
             .collect();
 
         let list = List::new(items);
@@ -44,6 +37,23 @@ impl SessionList {
         state: &AppState,
     ) {
         Spinner(state.frame_count()).render(area, buf);
+    }
+}
+
+fn render_item(item: &TmuxSession, idx: usize, selected_idx: usize) -> ListItem<'_> {
+    let relative_idx = idx.abs_diff(selected_idx);
+    let delta = Span::styled(
+        relative_idx.to_string(),
+        Style::default().fg(Color::DarkGray),
+    );
+    let line = Line::from(vec![delta, item.name().into()]);
+
+    let item = ListItem::new(line);
+
+    if idx == selected_idx {
+        item.bg(Color::DarkGray)
+    } else {
+        item
     }
 }
 

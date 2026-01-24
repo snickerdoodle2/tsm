@@ -19,6 +19,7 @@ pub struct AppState {
     should_quit: bool,
     frame_count: usize,
     view: View,
+    repeat_buffer: u32,
 
     sessions: Option<Vec<TmuxSession>>,
     selected_session: usize,
@@ -75,6 +76,14 @@ impl AppState {
         self.view = View::Create;
     }
 
+    pub fn push_repeat(&mut self, digit: u32) {
+        self.repeat_buffer = (self.repeat_buffer * 10) + digit;
+    }
+
+    pub fn reset_repeat(&mut self) {
+        self.repeat_buffer = 0;
+    }
+
     pub fn sessions(&self) -> Option<&Vec<TmuxSession>> {
         self.sessions.as_ref()
     }
@@ -111,21 +120,21 @@ impl AppState {
     }
 
     pub fn cycle_next(&mut self) {
-        if let Some(sessions) = &self.sessions {
-            self.selected_session = (self.selected_session + 1) % sessions.len();
-        }
+        let Some(sessions) = &self.sessions.as_ref().filter(|s| s.len() > 0) else {
+            return;
+        };
+
+        let to_move = self.repeat_buffer.max(1);
+        self.selected_session = (sessions.len() - 1).min(self.selected_session + to_move as usize);
     }
 
     pub fn cycle_prev(&mut self) {
-        if let Some(sessions) = &self.sessions {
-            let new = if self.selected_session == 0 {
-                sessions.len() - 1
-            } else {
-                self.selected_session - 1
-            };
+        if let None = &self.sessions.as_ref().filter(|s| s.len() > 0) {
+            return;
+        };
 
-            self.selected_session = new;
-        }
+        let to_move = self.repeat_buffer.max(1);
+        self.selected_session = self.selected_session.saturating_sub(to_move as usize);
     }
 
     pub fn select_session(&mut self) {
@@ -230,8 +239,8 @@ impl AppState {
 
     pub fn debug_info(&self) -> String {
         format!(
-            "{:?} {} {} {}",
-            self.view, self.buffer, self.cursor, self.frame_count
+            "{:?} {} {} {} {}",
+            self.view, self.buffer, self.cursor, self.frame_count, self.repeat_buffer
         )
     }
 

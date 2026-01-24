@@ -81,6 +81,8 @@ impl App {
     }
 
     fn handle_normal_mode_key_event(&mut self, event: KeyEvent) {
+        let mut digit_input = false;
+
         match event.code {
             KeyCode::Char('q') => self.exit(),
             KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
@@ -105,7 +107,16 @@ impl App {
                 // TODO: confirmation
                 self.state.delete_session();
             }
+            KeyCode::Char(digit) if digit >= '0' && digit <= '9' => {
+                digit_input = true;
+                let digit = digit.to_digit(10).unwrap();
+                self.state.push_repeat(digit);
+            }
             _ => {}
+        }
+
+        if !digit_input {
+            self.state.reset_repeat();
         }
     }
 
