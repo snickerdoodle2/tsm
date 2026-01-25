@@ -14,12 +14,17 @@ pub enum TmuxError {
 
 #[derive(Debug, Clone)]
 pub struct TmuxSession {
+    id: usize,
     name: String,
     created: DateTime<Utc>,
     attached: u8,
 }
 
 impl TmuxSession {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -36,7 +41,7 @@ impl TmuxSession {
         let output = Command::new("tmux")
             .arg("list-sessions")
             .arg("-F")
-            .arg("#{session_name};#{session_created};#{session_attached}")
+            .arg("#{session_id};#{session_name};#{session_created};#{session_attached}")
             .output()?;
 
         if !output.status.success() {
@@ -132,11 +137,13 @@ impl TmuxSession {
 
     fn from_line(line: &str) -> Option<Self> {
         let mut line = line.split(";");
+        let id = (&line.next()?[1..]).parse().ok()?;
         let name = line.next()?.into();
         let created_timestamp = line.next()?.parse::<i64>().ok()?;
         let attached = line.next()?.parse::<u8>().ok()?;
 
         Some(Self {
+            id,
             name,
             created: DateTime::from_timestamp_secs(created_timestamp)?,
             attached,
