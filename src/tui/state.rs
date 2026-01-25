@@ -93,7 +93,20 @@ impl AppState {
     }
 
     pub fn set_sessions(&mut self, sessions: Option<Vec<TmuxSession>>) {
-        // TODO: remember selected session
+        self.selected_session = self
+            .sessions
+            .as_ref()
+            .and_then(|s| s.get(self.selected_session))
+            .map(|s| s.id())
+            .zip(sessions.as_ref())
+            .and_then(|(id, sessions)| {
+                sessions
+                    .iter()
+                    .enumerate()
+                    .find_map(|(new_id, s)| (s.id() == id).then(|| new_id))
+            })
+            .unwrap_or(0);
+
         self.sessions = sessions;
     }
 
@@ -148,6 +161,7 @@ impl AppState {
 
     pub fn delete_session(&mut self) {
         // FIXME: probably it's a good idea to return it with index here
+        // BUG: removing last session
         let session = {
             let Some(session) = self.current_session() else {
                 return;
