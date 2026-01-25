@@ -8,20 +8,25 @@ use ratatui::{
     widgets::{Block, BorderType, Paragraph},
 };
 
-use crate::tui::{
-    event::{AppEvent, Event, EventHandler},
-    state::{AppState, View},
-    ui::components::{SessionDetails, SessionList},
+use crate::{
+    Args,
+    tui::{
+        event::{AppEvent, Event, EventHandler},
+        state::{AppState, View},
+        ui::components::{SessionDetails, SessionList},
+    },
 };
 
 pub struct App {
+    args: Args,
     state: AppState,
     events: EventHandler,
 }
 
 impl App {
-    pub fn new() -> Result<Self> {
+    pub fn new(args: Args) -> Result<Self> {
         Ok(Self {
+            args,
             state: AppState::new()?,
             events: EventHandler::new(),
         })
@@ -180,10 +185,17 @@ impl App {
         }
     }
 
+    fn get_area(&self, area: Rect) -> Rect {
+        if self.args.fullscreen() {
+            area
+        } else {
+            area.centered_horizontally(Constraint::Length(80))
+                .centered_vertically(Constraint::Length(30))
+        }
+    }
+
     fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
-        let area = area
-            .centered_horizontally(Constraint::Length(80))
-            .centered_vertically(Constraint::Length(30));
+        let area = self.get_area(area);
 
         let block = Block::default().title_bottom(self.keybinds().centered());
 
