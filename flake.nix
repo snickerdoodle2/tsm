@@ -18,7 +18,7 @@
     ...
   }:
     flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin"];
+      systems = ["x86_64-linux" "aarch64-darwin"];
       perSystem = {
         config,
         self',
@@ -48,7 +48,6 @@
         devShells = {
           default = pkgs.mkShell {
             nativeBuildInputs = with pkgs; [
-              just
               (rust-bin.stable.latest.default.override
                 {
                   extensions = ["rust-analyzer" "rust-src"];
