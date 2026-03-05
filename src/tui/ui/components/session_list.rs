@@ -1,3 +1,4 @@
+// FIXME: allow scrolling :(
 use ratatui::{
     prelude::*,
     style::Stylize,
@@ -7,7 +8,7 @@ use ratatui::{
 
 use crate::{
     TmuxSession,
-    tui::{state::AppState, ui::Spinner},
+    tui::{app::PALETTE, state::AppState, ui::Spinner},
 };
 
 pub struct SessionList;
@@ -41,17 +42,24 @@ impl SessionList {
 }
 
 fn render_item(item: &TmuxSession, idx: usize, selected_idx: usize) -> ListItem<'_> {
-    let relative_idx = idx.abs_diff(selected_idx);
-    let delta = Span::styled(
-        relative_idx.to_string(),
-        Style::default().fg(Color::DarkGray),
-    );
-    let line = Line::from(vec![delta, item.name().into()]);
+    let relative_idx = match idx.abs_diff(selected_idx) {
+        0 => format!("0 "),
+        x => format!(" {x}"),
+    }
+    .fg(PALETTE.overlay2);
+
+    let name = if idx == selected_idx {
+        item.name().bold().fg(PALETTE.text)
+    } else {
+        item.name().fg(PALETTE.subtext0)
+    };
+
+    let line = Line::from(vec![relative_idx, Span::raw(" "), name]);
 
     let item = ListItem::new(line);
 
     if idx == selected_idx {
-        item.bg(Color::DarkGray)
+        item.bg(PALETTE.surface0)
     } else {
         item
     }
