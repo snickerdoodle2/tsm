@@ -195,15 +195,17 @@ impl App {
     }
 
     fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
-        let area = self.get_area(area);
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Percentage(100), Constraint::Length(1)])
+            .split(self.get_area(area));
 
-        let block = Block::default().title_bottom(self.keybinds().centered());
-
-        block.render(area, buf);
+        self.keybinds().centered().render(layout[1], buf);
+        let area = layout[0];
 
         let outer_layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Fill(2), Constraint::Fill(3)])
+            .constraints(vec![Constraint::Max(32), Constraint::Fill(1)])
             .spacing(Spacing::Overlap(1))
             .split(area);
 
@@ -214,19 +216,19 @@ impl App {
             .split(outer_layout[1]);
 
         let left_block = Block::bordered()
-            .border_type(BorderType::Rounded)
+            .border_type(BorderType::Plain)
             .title_top(Line::from("Sessions").bold())
             .merge_borders(MergeStrategy::Fuzzy);
         let left_area = left_block.inner(outer_layout[0]);
 
         let top_right_block = Block::bordered()
-            .border_type(BorderType::Rounded)
+            .border_type(BorderType::Plain)
             .title_top(Line::from("Details").bold().right_aligned())
             .merge_borders(MergeStrategy::Fuzzy);
         let top_right_area = top_right_block.inner(inner_layout[0]);
 
         let bottom_right_block = Block::bordered()
-            .border_type(BorderType::Rounded)
+            .border_type(BorderType::Plain)
             .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
         let bottom_right_area = bottom_right_block.inner(inner_layout[1]);
 
