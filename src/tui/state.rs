@@ -181,6 +181,10 @@ impl AppState {
         }
     }
 
+    pub fn can_delete_session(&self) -> bool {
+        self.current_session().is_some_and(|s| s.attached() == 0)
+    }
+
     pub fn current_session(&self) -> Option<&TmuxSession> {
         self.sessions
             .as_ref()

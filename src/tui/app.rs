@@ -13,9 +13,11 @@ use crate::{
     tui::{
         event::{AppEvent, Event, EventHandler},
         state::{AppState, View},
-        ui::components::{SessionDetails, SessionList},
+        ui::components::{self, SessionDetails, SessionList},
     },
 };
+
+pub const PALETTE: catppuccin::FlavorColors = catppuccin::PALETTE.mocha.colors;
 
 pub struct App {
     args: Args,
@@ -146,50 +148,11 @@ impl App {
         self.render(frame.area(), frame);
     }
 
-    #[rustfmt::skip]
-    fn keybinds(&self) -> Line<'_> {
-        match self.state.view() {
-            View::Normal => {
-                let mut items = vec![
-                    " Up ".into(), "<K> ".blue().bold(),
-                    "Down ".into(), "<J> ".blue().bold(),
-                    "Create ".into(), "<N> ".blue().bold(),
-                    "Rename ".into(), "<R> ".blue().bold(),
-                ];
-
-                if self.state.current_session().is_some_and(|s| s.attached() == 0) {
-                    items.extend(vec![
-                        "Kill ".into(), "<D> ".blue().bold(),
-                    ]);
-                }
-
-                items.extend(vec![
-                    "Switch ".into(), "<Enter> ".blue().bold(),
-                    "Quit ".into(), "<Q> ".blue().bold()
-                ]);
-
-                Line::from(items)
-            }
-            View::Rename => {
-                Line::from(vec![
-                    " Abort ".into(), "<Esc> ".blue().bold(),
-                    "Rename ".into(), "<Enter> ".blue().bold(),
-                ])
-            },
-            View::Create => {
-                Line::from(vec![
-                    " Abort ".into(), "<Esc> ".blue().bold(),
-                    "Create ".into(), "<Enter> ".blue().bold(),
-                ])
-            },
-        }
-    }
-
     fn get_area(&self, area: Rect) -> Rect {
         if self.args.fullscreen() {
             area
         } else {
-            area.centered_horizontally(Constraint::Length(80))
+            area.centered_horizontally(Constraint::Length(100))
                 .centered_vertically(Constraint::Length(30))
         }
     }
@@ -200,7 +163,9 @@ impl App {
             .constraints(vec![Constraint::Percentage(100), Constraint::Length(1)])
             .split(self.get_area(area));
 
-        self.keybinds().centered().render(layout[1], buf);
+        components::keybinds(&self.state)
+            .centered()
+            .render(layout[1], buf);
         let area = layout[0];
 
         let outer_layout = Layout::default()
