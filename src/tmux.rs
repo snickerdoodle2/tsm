@@ -17,6 +17,7 @@ pub struct TmuxSession {
     id: usize,
     name: String,
     created: DateTime<Utc>,
+    last_activity: DateTime<Utc>,
     attached: u8,
 }
 
@@ -29,8 +30,12 @@ impl TmuxSession {
         &self.name
     }
 
-    pub fn created(&self) -> &DateTime<Utc> {
-        &self.created
+    pub fn created(&self) -> String {
+        chrono_humanize::HumanTime::from(self.created).to_string()
+    }
+
+    pub fn last_activity(&self) -> String {
+        chrono_humanize::HumanTime::from(self.last_activity).to_string()
     }
 
     pub fn attached(&self) -> u8 {
@@ -41,7 +46,7 @@ impl TmuxSession {
         let output = Command::new("tmux")
             .arg("list-sessions")
             .arg("-F")
-            .arg("#{session_id};#{session_name};#{session_created};#{session_attached}")
+            .arg("#{session_id};#{session_name};#{session_created};#{session_attached};#{session_activity}")
             .output()?;
 
         if !output.status.success() {
@@ -141,11 +146,13 @@ impl TmuxSession {
         let name = line.next()?.into();
         let created_timestamp = line.next()?.parse::<i64>().ok()?;
         let attached = line.next()?.parse::<u8>().ok()?;
+        let last_activity = line.next()?.parse::<i64>().ok()?;
 
         Some(Self {
             id,
             name,
             created: DateTime::from_timestamp_secs(created_timestamp)?,
+            last_activity: DateTime::from_timestamp_secs(last_activity)?,
             attached,
         })
     }
