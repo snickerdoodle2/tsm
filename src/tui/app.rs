@@ -168,6 +168,8 @@ impl App {
             .render(layout[1], buf);
         let area = layout[0];
 
+        let title_style = Style::default().bold().fg(PALETTE.green.into());
+
         let outer_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Max(32), Constraint::Fill(1)])
@@ -182,13 +184,13 @@ impl App {
 
         let left_block = Block::bordered()
             .border_type(BorderType::Plain)
-            .title_top(Line::from("Sessions").bold())
+            .title_top(Line::styled("Sessions", title_style).bold())
             .merge_borders(MergeStrategy::Fuzzy);
         let left_area = left_block.inner(outer_layout[0]);
 
         let top_right_block = Block::bordered()
             .border_type(BorderType::Plain)
-            .title_top(Line::from("Details").bold().right_aligned())
+            .title_top(Line::styled("Details", title_style).bold().right_aligned())
             .merge_borders(MergeStrategy::Fuzzy);
         let top_right_area = top_right_block.inner(inner_layout[0]);
 
