@@ -4,8 +4,8 @@ use crate::tui::app::PALETTE;
 
 pub fn fill_background(old: &Rect, new: &Rect, buf: &mut Buffer) {
     let style = Style::default()
-        .bg(PALETTE.crust.into())
-        .fg(PALETTE.mantle.into());
+        .bg(ratatui::style::Color::Reset)
+        .fg(PALETTE.crust.into());
     for y in old.top()..old.bottom() {
         for x in old.left()..old.right() {
             if !(x >= new.left() && x < new.right() && y >= new.top() && y < new.bottom()) {
