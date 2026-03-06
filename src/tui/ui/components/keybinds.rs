@@ -11,6 +11,7 @@ use crate::tui::{
 enum KeybindStyle {
     Normal,
     Dimmed,
+    Danger,
 }
 
 struct Keybind {
@@ -66,6 +67,12 @@ pub fn keybinds(state: &AppState) -> Line<'_> {
                 Keybind::new("Create", "Enter"),
             ]
         }
+        View::Delete => {
+            vec![
+                Keybind::new("No", "Esc"),
+                Keybind::new("Yes", "Enter").style(KeybindStyle::Danger),
+            ]
+        }
     };
 
     // FIXME: this suckss
@@ -82,6 +89,11 @@ pub fn keybinds(state: &AppState) -> Line<'_> {
                 let s = Style::default().bg(PALETTE.crust.into());
 
                 (s.fg(PALETTE.surface2.into()), s.fg(PALETTE.red.into()))
+            }
+            KeybindStyle::Danger => {
+                let s = Style::default().bg(PALETTE.base.into());
+
+                (s.fg(PALETTE.text.into()), s.fg(PALETTE.red.into()))
             }
         };
 

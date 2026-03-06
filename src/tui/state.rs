@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::TmuxSession;
 use anyhow::{Context, Result};
 
@@ -6,6 +8,7 @@ pub enum View {
     Normal,
     Rename,
     Create,
+    Delete,
 }
 
 impl Default for View {
@@ -23,6 +26,7 @@ pub struct AppState {
 
     sessions: Option<Vec<TmuxSession>>,
     selected_session: usize,
+    to_delete_session: Option<TmuxSession>,
 
     buffer: String,
     cursor: usize,
@@ -74,6 +78,11 @@ impl AppState {
         debug_assert!(self.view == View::Normal);
         self.set_buffer("");
         self.view = View::Create;
+    }
+
+    pub fn delete_mode(&mut self) {
+        self.view = View::Delete;
+        self.to_delete_session = self.current_session().cloned();
     }
 
     pub fn push_repeat(&mut self, digit: u32) {
@@ -162,12 +171,8 @@ impl AppState {
     pub fn delete_session(&mut self) {
         // FIXME: probably it's a good idea to return it with index here
         // BUG: removing last session
-        let session = {
-            let Some(session) = self.current_session() else {
-                return;
-            };
-
-            session.clone()
+        let Some(session) = mem::take(&mut self.to_delete_session) else {
+            return;
         };
 
         if session.attached() > 0 {
@@ -179,6 +184,8 @@ impl AppState {
                 rest.retain(|s| s.name() != session.name());
             }
         }
+
+        self.normal_mode();
     }
 
     pub fn can_delete_session(&self) -> bool {
@@ -195,6 +202,10 @@ impl AppState {
         self.sessions
             .as_mut()
             .and_then(|s| s.get_mut(self.selected_session))
+    }
+
+    pub fn to_delete_session(&self) -> Option<&TmuxSession> {
+        self.to_delete_session.as_ref()
     }
 
     pub fn set_buffer(&mut self, s: &str) {

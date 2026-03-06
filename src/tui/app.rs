@@ -2,7 +2,6 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    macros::constraints,
     prelude::*,
     symbols::merge::MergeStrategy,
     widgets::{Block, BorderType, Paragraph},
@@ -59,6 +58,7 @@ impl App {
     fn handle_key_event(&mut self, event: KeyEvent) {
         match self.state.view() {
             View::Normal => self.handle_normal_mode_key_event(event),
+            View::Delete => self.handle_confirm_mode_event(event),
             View::Rename | View::Create => self.handle_input_mode_key_event(event),
         }
     }
@@ -82,7 +82,7 @@ impl App {
             KeyCode::Enter => match self.state.view() {
                 View::Rename => self.state.rename_session(),
                 View::Create => self.create_session(),
-                View::Normal => unreachable!(),
+                View::Normal | View::Delete => unreachable!(),
             },
             _ => {}
         }
@@ -112,8 +112,7 @@ impl App {
                 self.state.create_mode();
             }
             KeyCode::Char('d') => {
-                // TODO: confirmation
-                self.state.delete_session();
+                self.state.delete_mode();
             }
             KeyCode::Char(digit) if digit >= '0' && digit <= '9' => {
                 digit_input = true;
@@ -125,6 +124,14 @@ impl App {
 
         if !digit_input {
             self.state.reset_repeat();
+        }
+    }
+
+    fn handle_confirm_mode_event(&mut self, event: KeyEvent) {
+        match event.code {
+            KeyCode::Esc => self.state.normal_mode(),
+            KeyCode::Enter => self.state.delete_session(),
+            _ => {}
         }
     }
 
@@ -247,6 +254,21 @@ impl App {
                     area.x + self.state.cursor() as u16 + 1,
                     area.y,
                 ));
+            }
+            View::Delete => {
+                let area = Modal::new("Create")
+                    .render(area, buf, &self.state)
+                    .centered_vertically(Constraint::Max(1));
+
+                Paragraph::new(format!(
+                    "Are you sure you want to delete {}?",
+                    self.state
+                        .to_delete_session()
+                        .map(|s| s.name())
+                        .unwrap_or("")
+                ))
+                .centered()
+                .render(area, buf);
             }
         }
     }
