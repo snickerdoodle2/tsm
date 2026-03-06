@@ -2,7 +2,7 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    layout::Spacing,
+    macros::constraints,
     prelude::*,
     symbols::merge::MergeStrategy,
     widgets::{Block, BorderType, Paragraph},
@@ -12,8 +12,9 @@ use crate::{
     Args,
     tui::{
         event::{AppEvent, Event, EventHandler},
+        helpers::fill_background,
         state::{AppState, View},
-        ui::components::{self, SessionDetails, SessionList},
+        ui::components::{self, Modal, SessionDetails, SessionList},
     },
 };
 
@@ -161,7 +162,7 @@ impl App {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Percentage(100), Constraint::Length(1)])
-            .split(self.get_area(area));
+            .split(area);
 
         components::keybinds(&self.state)
             .centered()
@@ -173,13 +174,11 @@ impl App {
         let outer_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Max(32), Constraint::Fill(1)])
-            .spacing(Spacing::Overlap(1))
             .split(area);
 
         let inner_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Fill(1); 2])
-            .spacing(Spacing::Overlap(1))
             .split(outer_layout[1]);
 
         let left_block = Block::bordered()
@@ -208,26 +207,45 @@ impl App {
 
     fn render(&self, area: Rect, frame: &mut Frame) {
         let buf = frame.buffer_mut();
-        let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
-        SessionList.render(left_area, buf, &self.state);
-        SessionDetails.render(top_right_area, buf, &self.state);
+        let old_area = area.clone();
+        let area = self.get_area(area);
+        fill_background(&old_area, &area, buf);
 
         match self.state.view() {
             View::Normal => {
+                let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
+                SessionList.render(left_area, buf, &self.state);
+                SessionDetails.render(top_right_area, buf, &self.state);
                 Paragraph::new(self.state.debug_info()).render(bottom_right_area, buf);
             }
-            View::Rename | View::Create => {
-                let input_area = Layout::vertical([Constraint::Length(1)])
-                    .horizontal_margin(1)
-                    .split(bottom_right_area)[0];
+            View::Rename => {
+                let title = format!(
+                    "Rename {}",
+                    self.state.current_session().map(|s| s.name()).unwrap_or("")
+                );
+                let area = Modal::new(&title)
+                    .render(area, buf, &self.state)
+                    .centered_vertically(Constraint::Max(1));
 
-                let input =
-                    Paragraph::new(self.state.buffer()).style(Style::default().bg(Color::Gray));
+                let input = Paragraph::new(self.state.buffer()).bg(PALETTE.surface0);
 
-                input.render(input_area, buf);
+                input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
-                    input_area.x + self.state.cursor() as u16,
-                    input_area.y,
+                    area.x + self.state.cursor() as u16 + 1,
+                    area.y,
+                ));
+            }
+            View::Create => {
+                let area = Modal::new("Create")
+                    .render(area, buf, &self.state)
+                    .centered_vertically(Constraint::Max(1));
+
+                let input = Paragraph::new(self.state.buffer()).bg(PALETTE.surface0);
+
+                input.render(area.inner(Margin::new(1, 0)), buf);
+                frame.set_cursor_position(Position::new(
+                    area.x + self.state.cursor() as u16 + 1,
+                    area.y,
                 ));
             }
         }
