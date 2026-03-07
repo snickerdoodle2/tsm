@@ -61,7 +61,11 @@ impl TmuxSession {
         }
 
         let stdout = String::from_utf8(output.stdout).unwrap();
-        Ok(stdout.lines().filter_map(TmuxSession::from_line).collect())
+
+        let mut items: Vec<_> = stdout.lines().filter_map(TmuxSession::from_line).collect();
+        items.sort_by_key(|s| s.id());
+
+        Ok(items)
     }
 
     pub fn create(name: &str) -> Result<(), TmuxError> {

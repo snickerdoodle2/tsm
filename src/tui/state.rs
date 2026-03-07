@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::TmuxSession;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum View {
@@ -168,24 +168,19 @@ impl AppState {
         }
     }
 
-    pub fn delete_session(&mut self) {
-        // FIXME: probably it's a good idea to return it with index here
-        // BUG: removing last session
+    pub fn delete_session(&mut self) -> Result<()> {
         let Some(session) = mem::take(&mut self.to_delete_session) else {
-            return;
+            bail!("No session to delete");
         };
 
         if session.attached() > 0 {
-            return;
+            bail!("Someone is attached to the session");
         }
 
-        if session.delete().is_ok() {
-            if let Some(rest) = self.sessions.as_mut() {
-                rest.retain(|s| s.name() != session.name());
-            }
-        }
+        session.delete()?;
 
         self.normal_mode();
+        Ok(())
     }
 
     pub fn can_delete_session(&self) -> bool {
@@ -268,8 +263,13 @@ impl AppState {
 
     pub fn debug_info(&self) -> String {
         format!(
-            "{:?} {} {} {} {}",
-            self.view, self.buffer, self.cursor, self.frame_count, self.repeat_buffer
+            "view: {:?}; buffer: {}; cursor: {};\nframe_count: {}; repeat: {}; id: {}",
+            self.view,
+            self.buffer,
+            self.cursor,
+            self.frame_count,
+            self.repeat_buffer,
+            self.current_session().map(|s| s.id()).unwrap_or_default()
         )
     }
 

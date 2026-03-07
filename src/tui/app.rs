@@ -130,7 +130,7 @@ impl App {
     fn handle_confirm_mode_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Esc => self.state.normal_mode(),
-            KeyCode::Enter => self.state.delete_session(),
+            KeyCode::Enter => self.delete_session(),
             _ => {}
         }
     }
@@ -144,6 +144,12 @@ impl App {
 
     fn create_session(&mut self) {
         if self.state.create_session().is_ok() {
+            self.events.request_refetch();
+        }
+    }
+
+    fn delete_session(&mut self) {
+        if self.state.delete_session().is_ok() {
             self.events.request_refetch();
         }
     }
