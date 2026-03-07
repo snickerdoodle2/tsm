@@ -1,7 +1,8 @@
-use std::mem;
-
+// FIXME: probably should update session list only after keystroke
 use crate::TmuxSession;
 use anyhow::{Context, Result, bail};
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+use std::mem;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum View {
@@ -9,6 +10,7 @@ pub enum View {
     Rename,
     Create,
     Delete,
+    Search,
 }
 
 impl Default for View {
@@ -25,11 +27,18 @@ pub struct AppState {
     repeat_buffer: u32,
 
     sessions: Option<Vec<TmuxSession>>,
-    selected_session: usize,
+    // TODO: add ouroboros (or similar crate) to fix searching...
+    /// Selected session's id
+    selected_session: Option<usize>,
     to_delete_session: Option<TmuxSession>,
 
-    buffer: String,
-    cursor: usize,
+    input_buffer: String,
+    input_cursor: usize,
+
+    search_buffer: String,
+    search_cursor: usize,
+
+    matcher: SkimMatcherV2,
 }
 
 impl AppState {
@@ -59,6 +68,16 @@ impl AppState {
 
     pub fn normal_mode(&mut self) {
         debug_assert!(self.view != View::Normal);
+        self.view = View::Normal;
+    }
+
+    pub fn search_mode(&mut self) {
+        debug_assert!(self.view == View::Normal);
+        self.view = View::Search;
+    }
+
+    pub fn cancel_search(&mut self) {
+        self.clear_search();
         self.view = View::Normal;
     }
 
@@ -93,35 +112,37 @@ impl AppState {
         self.repeat_buffer = 0;
     }
 
-    pub fn sessions(&self) -> Option<&Vec<TmuxSession>> {
-        self.sessions.as_ref()
+    pub fn sessions(&self) -> Option<impl Iterator<Item = &TmuxSession>> {
+        self.sessions.as_ref().map(|s| {
+            s.iter().filter(|s| {
+                self.matcher
+                    .fuzzy_match(s.name(), &self.search_buffer)
+                    .is_some()
+            })
+        })
     }
 
-    pub fn selected_session(&self) -> usize {
-        self.selected_session
+    fn sessions_mut(&mut self) -> Option<impl Iterator<Item = &mut TmuxSession>> {
+        self.sessions.as_mut().map(|s| {
+            s.iter_mut()
+                .filter(|s| s.name().starts_with(&self.search_buffer))
+        })
     }
 
     pub fn set_sessions(&mut self, sessions: Option<Vec<TmuxSession>>) {
-        self.selected_session = self
-            .sessions
-            .as_ref()
-            .and_then(|s| s.get(self.selected_session))
-            .map(|s| s.id())
-            .zip(sessions.as_ref())
-            .and_then(|(id, sessions)| {
-                sessions
-                    .iter()
-                    .enumerate()
-                    .find_map(|(new_id, s)| (s.id() == id).then(|| new_id))
-            })
-            .unwrap_or(0);
-
         self.sessions = sessions;
+        self.update_current_session();
+    }
+
+    pub fn update_current_session(&mut self) {
+        if self.current_session().is_none() {
+            self.selected_session = self.sessions().and_then(|mut s| s.next().map(|s| s.id()));
+        }
     }
 
     pub fn rename_session(&mut self) {
         // FIXME: to_string
-        let new_name = self.buffer.to_string();
+        let new_name = self.input_buffer.to_string();
         let Some(session) = self.current_session_mut() else {
             return;
         };
@@ -132,7 +153,7 @@ impl AppState {
     }
 
     pub fn create_session(&mut self) -> Result<()> {
-        match TmuxSession::create(&self.buffer).context("Failed to create tmux session") {
+        match TmuxSession::create(&self.input_buffer).context("Failed to create tmux session") {
             Ok(_) => {
                 self.normal_mode();
                 Ok(())
@@ -142,21 +163,27 @@ impl AppState {
     }
 
     pub fn cycle_next(&mut self) {
-        let Some(sessions) = &self.sessions.as_ref().filter(|s| s.len() > 0) else {
-            return;
-        };
+        self.selected_session = if let Some(idx) = self.current_session_index() {
+            let to_move = self.repeat_buffer.max(1);
+            let sessions: Vec<_> = self.sessions().map(|s| s.collect()).unwrap_or_default();
+            let new_idx = (sessions.len() - 1).min(idx + to_move as usize);
 
-        let to_move = self.repeat_buffer.max(1);
-        self.selected_session = (sessions.len() - 1).min(self.selected_session + to_move as usize);
+            Some(sessions[new_idx].id())
+        } else {
+            self.sessions().and_then(|mut s| s.next().map(|s| s.id()))
+        };
     }
 
     pub fn cycle_prev(&mut self) {
-        if let None = &self.sessions.as_ref().filter(|s| s.len() > 0) {
-            return;
-        };
+        self.selected_session = if let Some(idx) = self.current_session_index() {
+            let to_move = self.repeat_buffer.max(1);
+            let sessions: Vec<_> = self.sessions().map(|s| s.collect()).unwrap_or_default();
+            let new_idx = idx.saturating_sub(to_move as usize);
 
-        let to_move = self.repeat_buffer.max(1);
-        self.selected_session = self.selected_session.saturating_sub(to_move as usize);
+            Some(sessions[new_idx].id())
+        } else {
+            self.sessions().and_then(|s| s.last().map(|s| s.id()))
+        };
     }
 
     pub fn select_session(&mut self) {
@@ -188,100 +215,158 @@ impl AppState {
     }
 
     pub fn current_session(&self) -> Option<&TmuxSession> {
-        self.sessions
-            .as_ref()
-            .and_then(|s| s.get(self.selected_session))
+        let selected_id = self.selected_session?;
+        let mut sessions = self.sessions()?;
+
+        sessions.find(|s| s.id() == selected_id)
     }
 
     pub fn current_session_mut(&mut self) -> Option<&mut TmuxSession> {
-        self.sessions
-            .as_mut()
-            .and_then(|s| s.get_mut(self.selected_session))
+        let selected_id = self.selected_session?;
+        let mut sessions = self.sessions_mut()?;
+
+        sessions.find(|s| s.id() == selected_id)
+    }
+
+    pub fn current_session_index(&self) -> Option<usize> {
+        let selected_id = self.selected_session?;
+        let sessions = self.sessions()?;
+
+        sessions
+            .enumerate()
+            .find(|(_, s)| s.id() == selected_id)
+            .map(|(i, _)| i)
     }
 
     pub fn to_delete_session(&self) -> Option<&TmuxSession> {
         self.to_delete_session.as_ref()
     }
 
-    pub fn set_buffer(&mut self, s: &str) {
-        self.buffer.replace_range(.., s);
-        self.cursor = s.chars().count();
+    pub fn search_buffer(&self) -> &str {
+        &self.search_buffer
     }
 
-    pub fn buffer(&self) -> &str {
-        &self.buffer
+    pub fn clear_search(&mut self) {
+        self.search_buffer.clear();
+        self.search_cursor = 0;
     }
 
-    pub fn cursor(&self) -> usize {
-        self.cursor
+    pub fn search_cursor(&self) -> usize {
+        self.search_cursor
+    }
+
+    pub fn input_buffer(&self) -> &str {
+        &self.input_buffer
+    }
+
+    pub fn input_cursor(&self) -> usize {
+        self.input_cursor
+    }
+
+    fn set_buffer(&mut self, s: &str) {
+        self.buffer_mut().replace_range(.., s);
+        *self.cursor_mut() = s.chars().count();
+    }
+
+    fn buffer(&self) -> &str {
+        if self.view == View::Search {
+            &self.search_buffer
+        } else {
+            &self.input_buffer
+        }
+    }
+
+    fn buffer_mut(&mut self) -> &mut String {
+        if self.view == View::Search {
+            &mut self.search_buffer
+        } else {
+            &mut self.input_buffer
+        }
+    }
+
+    fn cursor(&self) -> usize {
+        if self.view == View::Search {
+            self.search_cursor
+        } else {
+            self.input_cursor
+        }
+    }
+
+    fn cursor_mut(&mut self) -> &mut usize {
+        if self.view == View::Search {
+            &mut self.search_cursor
+        } else {
+            &mut self.input_cursor
+        }
     }
 
     pub fn insert_char(&mut self, c: char) {
         let idx = self.byte_index();
-        self.buffer.insert(idx, c);
+        self.buffer_mut().insert(idx, c);
         self.move_cursor_right();
     }
 
     pub fn remove_char(&mut self) {
-        if self.cursor == 0 {
+        if self.cursor() == 0 {
             return;
         }
-        self.cursor -= 1;
+        *self.cursor_mut() -= 1;
 
         let byte_pos = self.byte_index();
 
-        self.buffer.remove(byte_pos);
+        self.buffer_mut().remove(byte_pos);
     }
 
     pub fn remove_till_start(&mut self) {
-        if self.cursor == 0 {
+        if self.cursor() == 0 {
             return;
         }
         let byte_pos = self.byte_index();
-        self.cursor = 0;
+        *self.cursor_mut() = 0;
 
-        _ = self.buffer.drain(0..byte_pos);
+        _ = self.buffer_mut().drain(0..byte_pos);
     }
 
     pub fn move_cursor_left(&mut self) {
-        let new_idx = self.cursor.saturating_sub(1);
-        self.cursor = self.clamp_cursor(new_idx);
+        let new_idx = self.cursor().saturating_sub(1);
+        *self.cursor_mut() = self.clamp_cursor(new_idx);
     }
 
     pub fn move_cursor_right(&mut self) {
-        let new_idx = self.cursor.saturating_add(1);
-        self.cursor = self.clamp_cursor(new_idx);
+        let new_idx = self.cursor().saturating_add(1);
+        *self.cursor_mut() = self.clamp_cursor(new_idx);
     }
 
     pub fn move_cursor_start(&mut self) {
-        self.cursor = 0;
+        *self.cursor_mut() = 0
     }
 
     pub fn move_cursor_end(&mut self) {
-        self.cursor = self.buffer.chars().count();
+        *self.cursor_mut() = self.buffer().chars().count();
     }
 
     pub fn debug_info(&self) -> String {
         format!(
-            "view: {:?}\nbuffer: {}\ncursor: {}\nframe_count: {}\nrepeat: {}\nid: {}",
+            "view: {:?}\nbuffer: {}\ncursor: {}\nframe_count: {}\nrepeat: {}\nid: {}\nname: {}",
             self.view,
-            self.buffer,
-            self.cursor,
+            self.buffer(),
+            self.cursor(),
             self.frame_count,
             self.repeat_buffer,
-            self.current_session().map(|s| s.id()).unwrap_or_default()
+            self.current_session().map(|s| s.id()).unwrap_or_default(),
+            self.current_session().map(|s| s.name()).unwrap_or_default(),
         )
     }
 
     fn clamp_cursor(&self, pos: usize) -> usize {
-        pos.clamp(0, self.buffer.chars().count())
+        pos.clamp(0, self.buffer().chars().count())
     }
 
     fn byte_index(&self) -> usize {
-        self.buffer
+        self.buffer()
             .char_indices()
             .map(|(i, _)| i)
-            .nth(self.cursor)
-            .unwrap_or(self.buffer.len())
+            .nth(self.cursor())
+            .unwrap_or(self.buffer().len())
     }
 }

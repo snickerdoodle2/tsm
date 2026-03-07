@@ -20,10 +20,11 @@ impl SessionList {
             return;
         };
 
+        let cur_idx = state.current_session_index().unwrap_or_default();
+
         let items: Vec<_> = sessions
-            .iter()
             .enumerate()
-            .map(|(i, s)| render_item(s, i, state.selected_session()))
+            .map(|(i, s)| render_item(s, i, cur_idx))
             .collect();
 
         let list = List::new(items);

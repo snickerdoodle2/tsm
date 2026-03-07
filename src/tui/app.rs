@@ -53,6 +53,8 @@ impl App {
             Event::App(event) => self.handle_app_event(event),
         }
 
+        self.state.update_current_session();
+
         Ok(())
     }
 
@@ -60,13 +62,12 @@ impl App {
         match self.state.view() {
             View::Normal => self.handle_normal_mode_key_event(event),
             View::Delete => self.handle_confirm_mode_event(event),
-            View::Rename | View::Create => self.handle_input_mode_key_event(event),
+            View::Search | View::Rename | View::Create => self.handle_input_mode_key_event(event),
         }
     }
 
     fn handle_input_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
-            KeyCode::Esc => self.state.normal_mode(),
             KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
                 self.state.move_cursor_start();
             }
@@ -80,9 +81,15 @@ impl App {
             KeyCode::Backspace => self.state.remove_char(),
             KeyCode::Left => self.state.move_cursor_left(),
             KeyCode::Right => self.state.move_cursor_right(),
+            KeyCode::Esc => match self.state.view() {
+                View::Rename | View::Create => self.state.normal_mode(),
+                View::Search => self.state.cancel_search(),
+                View::Normal | View::Delete => unreachable!(),
+            },
             KeyCode::Enter => match self.state.view() {
                 View::Rename => self.state.rename_session(),
                 View::Create => self.create_session(),
+                View::Search => self.state.normal_mode(),
                 View::Normal | View::Delete => unreachable!(),
             },
             _ => {}
@@ -95,26 +102,20 @@ impl App {
         match event.code {
             KeyCode::Char('q') => self.exit(),
             KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
-                self.exit()
+                self.exit();
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.cycle_next();
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.cycle_prev();
-            }
-            KeyCode::Enter => {
-                self.state.select_session();
-            }
-            KeyCode::Char('r') => {
-                self.state.rename_mode();
-            }
-            KeyCode::Char('n') => {
-                self.state.create_mode();
-            }
-            KeyCode::Char('d') => {
-                self.state.delete_mode();
-            }
+
+            KeyCode::Down | KeyCode::Char('j') => self.state.cycle_next(),
+            KeyCode::Up | KeyCode::Char('k') => self.state.cycle_prev(),
+
+            KeyCode::Enter => self.state.select_session(),
+            KeyCode::Esc => self.state.clear_search(),
+
+            KeyCode::Char('s') => self.state.search_mode(),
+            KeyCode::Char('r') => self.state.rename_mode(),
+            KeyCode::Char('n') => self.state.create_mode(),
+            KeyCode::Char('d') => self.state.delete_mode(),
+
             KeyCode::Char(digit) if digit >= '0' && digit <= '9' => {
                 digit_input = true;
                 let digit = digit.to_digit(10).unwrap();
@@ -213,11 +214,27 @@ impl App {
         fill_background(&old_area, &area, buf);
 
         match self.state.view() {
-            View::Normal => {
+            View::Normal | View::Search => {
                 let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
-                SessionList.render(left_area, buf, &self.state);
                 SessionDetails.render(top_right_area, buf, &self.state);
                 Paragraph::new(self.state.debug_info()).render(bottom_right_area, buf);
+
+                let layout = Layout::vertical(constraints![*=1, ==1]).split(left_area);
+                SessionList.render(layout[0], buf, &self.state);
+
+                let area = layout[1];
+                if self.state.search_buffer().len() > 0 || self.state.view() == View::Search {
+                    let input = Paragraph::new(self.state.search_buffer()).bg(PALETTE.surface0);
+
+                    input.render(area.inner(Margin::new(1, 0)), buf);
+                }
+
+                if self.state.view() == View::Search {
+                    frame.set_cursor_position(Position::new(
+                        area.x + self.state.search_cursor() as u16 + 1,
+                        area.y,
+                    ));
+                }
             }
             View::Rename => {
                 let title = format!(
@@ -228,11 +245,11 @@ impl App {
                     .render(area, buf, &self.state)
                     .centered_vertically(Constraint::Max(1));
 
-                let input = Paragraph::new(self.state.buffer()).bg(PALETTE.surface0);
+                let input = Paragraph::new(self.state.input_buffer()).bg(PALETTE.surface0);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
-                    area.x + self.state.cursor() as u16 + 1,
+                    area.x + self.state.input_cursor() as u16 + 1,
                     area.y,
                 ));
             }
@@ -241,11 +258,11 @@ impl App {
                     .render(area, buf, &self.state)
                     .centered_vertically(Constraint::Max(1));
 
-                let input = Paragraph::new(self.state.buffer()).bg(PALETTE.surface0);
+                let input = Paragraph::new(self.state.input_buffer()).bg(PALETTE.surface0);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
-                    area.x + self.state.cursor() as u16 + 1,
+                    area.x + self.state.input_cursor() as u16 + 1,
                     area.y,
                 ));
             }
