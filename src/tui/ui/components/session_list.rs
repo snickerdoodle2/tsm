@@ -44,8 +44,8 @@ impl SessionList {
 
 fn render_item(item: &TmuxSession, idx: usize, selected_idx: usize) -> ListItem<'_> {
     let relative_idx = match idx.abs_diff(selected_idx) {
-        0 => format!("0 "),
-        x => format!(" {x}"),
+        0 => Span::raw("0 "),
+        x => format!(" {x}").into(),
     }
     .fg(PALETTE.overlay2);
 

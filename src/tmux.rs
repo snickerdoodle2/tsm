@@ -146,7 +146,7 @@ impl TmuxSession {
 
     fn from_line(line: &str) -> Option<Self> {
         let mut line = line.split(";");
-        let id = (&line.next()?[1..]).parse().ok()?;
+        let id = line.next()?[1..].parse().ok()?;
         let name = line.next()?.into();
         let created_timestamp = line.next()?.parse::<i64>().ok()?;
         let attached = line.next()?.parse::<u8>().ok()?;

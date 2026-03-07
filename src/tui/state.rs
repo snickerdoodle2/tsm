@@ -4,19 +4,14 @@ use anyhow::{Context, Result, bail};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use std::mem;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub enum View {
+    #[default]
     Normal,
     Rename,
     Create,
     Delete,
     Search,
-}
-
-impl Default for View {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Default)]
@@ -89,6 +84,7 @@ impl AppState {
 
         // NOTE: inlining both functions would allow omitting allocating here
         // buuut i kinda don't want to (+ i'll probably use Rc<str> anyway)
+        #[allow(clippy::unnecessary_to_owned)]
         self.set_buffer(&name.to_string());
         self.view = View::Rename;
     }
@@ -187,11 +183,10 @@ impl AppState {
     }
 
     pub fn select_session(&mut self) {
-        if let Some(session) = self.current_session() {
-            match session.select() {
-                Ok(_) => self.should_quit = true,
-                Err(_) => {}
-            }
+        if let Some(session) = self.current_session()
+            && let Ok(_) = session.select()
+        {
+            self.should_quit = true;
         }
     }
 

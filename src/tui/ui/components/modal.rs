@@ -12,7 +12,7 @@ impl<'a> Modal<'a> {
     }
 
     pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState) -> Rect {
-        let old_area = area.clone();
+        let old_area = area;
         let area = area
             .centered_horizontally(Constraint::Ratio(1, 2))
             .centered_vertically(Constraint::Ratio(1, 2));

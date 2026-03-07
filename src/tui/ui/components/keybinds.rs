@@ -29,7 +29,7 @@ impl Keybind {
         }
     }
 
-    fn dimmed(self: Self, set: bool) -> Self {
+    fn dimmed(self, set: bool) -> Self {
         if set {
             self.style(KeybindStyle::Dimmed)
         } else {
@@ -37,7 +37,7 @@ impl Keybind {
         }
     }
 
-    fn style(self: Self, style: KeybindStyle) -> Self {
+    fn style(self, style: KeybindStyle) -> Self {
         Self { style, ..self }
     }
 }

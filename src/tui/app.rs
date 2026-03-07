@@ -46,10 +46,11 @@ impl App {
     async fn handle_events(&mut self) -> Result<()> {
         match self.events.next().await? {
             Event::Tick => self.state.tick(),
-            Event::Crossterm(event) => match event {
-                crossterm::event::Event::Key(key_event) => self.handle_key_event(key_event),
-                _ => {}
-            },
+            Event::Crossterm(event) => {
+                if let crossterm::event::Event::Key(key_event) = event {
+                    self.handle_key_event(key_event);
+                }
+            }
             Event::App(event) => self.handle_app_event(event),
         }
 
@@ -116,7 +117,7 @@ impl App {
             KeyCode::Char('n') => self.state.create_mode(),
             KeyCode::Char('d') => self.state.delete_mode(),
 
-            KeyCode::Char(digit) if digit >= '0' && digit <= '9' => {
+            KeyCode::Char(digit) if digit.is_ascii_digit() => {
                 digit_input = true;
                 let digit = digit.to_digit(10).unwrap();
                 self.state.push_repeat(digit);
@@ -209,7 +210,7 @@ impl App {
 
     fn render(&self, area: Rect, frame: &mut Frame) {
         let buf = frame.buffer_mut();
-        let old_area = area.clone();
+        let old_area = area;
         let area = self.get_area(area);
         fill_background(&old_area, &area, buf);
 
@@ -223,7 +224,7 @@ impl App {
                 SessionList.render(layout[0], buf, &self.state);
 
                 let area = layout[1];
-                if self.state.search_buffer().len() > 0 || self.state.view() == View::Search {
+                if !self.state.search_buffer().is_empty() || self.state.view() == View::Search {
                     let input = Paragraph::new(self.state.search_buffer()).bg(PALETTE.surface0);
 
                     input.render(area.inner(Margin::new(1, 0)), buf);
