@@ -2,6 +2,7 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    macros::constraints,
     prelude::*,
     symbols::merge::MergeStrategy,
     widgets::{Block, BorderType, Paragraph},
@@ -172,11 +173,7 @@ impl App {
     }
 
     fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Percentage(100), Constraint::Length(1)])
-            .split(area);
-
+        let layout = Layout::vertical(constraints![*=1, ==1]).split(area);
         components::keybinds(&self.state)
             .centered()
             .render(layout[1], buf);
@@ -184,38 +181,29 @@ impl App {
 
         let title_style = Style::default().bold().fg(PALETTE.green.into());
 
-        let outer_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Max(32), Constraint::Fill(1)])
-            .split(area);
-
-        let inner_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Fill(1); 2])
-            .split(outer_layout[1]);
+        let layout = Layout::horizontal(constraints![*=1, *=1, *=1]).split(area);
 
         let left_block = Block::bordered()
             .border_type(BorderType::Plain)
             .title_top(Line::styled("Sessions", title_style).bold())
             .merge_borders(MergeStrategy::Fuzzy);
-        let left_area = left_block.inner(outer_layout[0]);
+        let left_area = left_block.inner(layout[0]);
+        left_block.render(layout[0], buf);
 
-        let top_right_block = Block::bordered()
+        let middle_block = Block::bordered()
             .border_type(BorderType::Plain)
-            .title_top(Line::styled("Details", title_style).bold().right_aligned())
+            .title_top(Line::styled("Details", title_style).bold().left_aligned())
             .merge_borders(MergeStrategy::Fuzzy);
-        let top_right_area = top_right_block.inner(inner_layout[0]);
+        let middle_area = middle_block.inner(layout[1]);
+        middle_block.render(layout[1], buf);
 
-        let bottom_right_block = Block::bordered()
+        let right_block = Block::bordered()
             .border_type(BorderType::Plain)
             .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
-        let bottom_right_area = bottom_right_block.inner(inner_layout[1]);
+        let right_area = right_block.inner(layout[2]);
+        right_block.render(layout[2], buf);
 
-        left_block.render(outer_layout[0], buf);
-        top_right_block.render(inner_layout[0], buf);
-        bottom_right_block.render(inner_layout[1], buf);
-
-        (left_area, top_right_area, bottom_right_area)
+        (left_area, middle_area, right_area)
     }
 
     fn render(&self, area: Rect, frame: &mut Frame) {

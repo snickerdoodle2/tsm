@@ -263,7 +263,7 @@ impl AppState {
 
     pub fn debug_info(&self) -> String {
         format!(
-            "view: {:?}; buffer: {}; cursor: {};\nframe_count: {}; repeat: {}; id: {}",
+            "view: {:?}\nbuffer: {}\ncursor: {}\nframe_count: {}\nrepeat: {}\nid: {}",
             self.view,
             self.buffer,
             self.cursor,
