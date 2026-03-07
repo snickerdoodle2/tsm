@@ -250,7 +250,7 @@ impl App {
                 ));
             }
             View::Delete => {
-                let area = Modal::new("Create")
+                let area = Modal::new("Delete")
                     .render(area, buf, &self.state)
                     .centered_vertically(Constraint::Max(1));
 
