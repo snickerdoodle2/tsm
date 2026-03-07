@@ -214,6 +214,12 @@ impl AppState {
 
         session.delete()?;
 
+        let sessions: Vec<_> = self.sessions().context("No sessions")?.collect();
+        if let Some(session_idx) = sessions.iter().position(|s| s.id() == session.id()) {
+            let next_idx = (sessions.len() - 1).min(session_idx + 1);
+            self.selected_session = Some(sessions[next_idx].id());
+        }
+
         self.normal_mode();
         Ok(())
     }
