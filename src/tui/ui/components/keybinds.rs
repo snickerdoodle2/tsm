@@ -73,7 +73,10 @@ pub fn keybinds(state: &AppState) -> Line<'_> {
                 Keybind::new("Yes", "Enter").style(KeybindStyle::Danger),
             ]
         }
-        View::Search => vec![],
+        View::Search => vec![
+            Keybind::new("Cancel", "Esc"),
+            Keybind::new("Search", "Enter"),
+        ],
     };
 
     // FIXME: this suckss
