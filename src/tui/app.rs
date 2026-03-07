@@ -174,7 +174,7 @@ impl App {
         }
     }
 
-    fn layout(&self, area: Rect, buf: &mut Buffer) -> (Rect, Rect, Rect) {
+    fn layout(&self, area: Rect, buf: &mut Buffer) -> Box<[Rect]> {
         let layout = Layout::vertical(constraints![*=1, ==1]).split(area);
         components::keybinds(&self.state)
             .centered()
@@ -183,7 +183,12 @@ impl App {
 
         let title_style = Style::default().bold().fg(PALETTE.green.into());
 
-        let layout = Layout::horizontal(constraints![*=1, *=1, *=1]).split(area);
+        let layout = if cfg!(feature = "debug") {
+            Layout::horizontal(constraints![*=1, *=1, *=1])
+        } else {
+            Layout::horizontal(constraints![*=1, *=1])
+        }
+        .split(area);
 
         let left_block = Block::bordered()
             .border_type(BorderType::Plain)
@@ -199,13 +204,17 @@ impl App {
         let middle_area = middle_block.inner(layout[1]);
         middle_block.render(layout[1], buf);
 
-        let right_block = Block::bordered()
-            .border_type(BorderType::Plain)
-            .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
-        let right_area = right_block.inner(layout[2]);
-        right_block.render(layout[2], buf);
+        if cfg!(feature = "debug") {
+            let right_block = Block::bordered()
+                .border_type(BorderType::Plain)
+                .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
+            let right_area = right_block.inner(layout[2]);
+            right_block.render(layout[2], buf);
 
-        (left_area, middle_area, right_area)
+            Box::new([left_area, middle_area, right_area])
+        } else {
+            Box::new([left_area, middle_area])
+        }
     }
 
     fn render(&self, area: Rect, frame: &mut Frame) {
@@ -216,11 +225,14 @@ impl App {
 
         match self.state.view() {
             View::Normal | View::Search => {
-                let (left_area, top_right_area, bottom_right_area) = self.layout(area, buf);
-                SessionDetails.render(top_right_area, buf, &self.state);
-                Paragraph::new(self.state.debug_info()).render(bottom_right_area, buf);
+                let splits = self.layout(area, buf);
+                SessionDetails.render(splits[1], buf, &self.state);
 
-                let layout = Layout::vertical(constraints![*=1, ==1]).split(left_area);
+                if cfg!(feature = "debug") {
+                    Paragraph::new(self.state.debug_info()).render(splits[2], buf);
+                }
+
+                let layout = Layout::vertical(constraints![*=1, ==1]).split(splits[0]);
                 SessionList.render(layout[0], buf, &self.state);
 
                 let area = layout[1];

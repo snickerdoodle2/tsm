@@ -3,6 +3,9 @@ name = "tsm"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+debug = []
+
 [dependencies]
 anyhow = "1.0.100"
 catppuccin = { features = ["ratatui"], git = "https://github.com/catppuccin/rust" } # FIXME: after 0.2.7 lands
