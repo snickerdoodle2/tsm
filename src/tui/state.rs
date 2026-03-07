@@ -110,6 +110,7 @@ impl AppState {
     }
 
     pub fn sessions(&self) -> Option<impl Iterator<Item = &TmuxSession>> {
+        // TODO: sort by score here??
         self.sessions.as_ref().map(|s| {
             s.iter().filter(|s| {
                 self.matcher
