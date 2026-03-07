@@ -26,6 +26,7 @@ pub struct AppState {
     /// Selected session's id
     selected_session: Option<usize>,
     to_delete_session: Option<TmuxSession>,
+    created_session_name: Option<Box<str>>,
 
     input_buffer: String,
     input_cursor: usize,
@@ -131,6 +132,16 @@ impl AppState {
     }
 
     pub fn update_current_session(&mut self) {
+        if let Some(name) = self.created_session_name.as_ref()
+            && let Some(session) = self
+                .sessions()
+                .and_then(|mut i| i.find(|s| s.name() == name as &str))
+        {
+            self.selected_session = Some(session.id());
+            self.created_session_name = None;
+            return;
+        }
+
         if self.current_session().is_none() {
             self.selected_session = self.sessions().and_then(|mut s| s.next().map(|s| s.id()));
         }
@@ -151,7 +162,9 @@ impl AppState {
     pub fn create_session(&mut self) -> Result<()> {
         match TmuxSession::create(&self.input_buffer).context("Failed to create tmux session") {
             Ok(_) => {
-                self.normal_mode();
+                self.created_session_name = Some(self.input_buffer.as_str().into());
+                // HACK: while searching, if newly created session is not displayed, first time it's showed it's automatically selected
+                self.cancel_search();
                 Ok(())
             }
             Err(e) => Err(e),
