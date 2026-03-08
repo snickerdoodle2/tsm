@@ -1,11 +1,11 @@
 use ratatui::{buffer::Buffer, layout::Rect, style::Style, symbols::braille::BRAILLE};
 
-use crate::tui::app::PALETTE;
+use crate::config::Theme;
 
-pub fn fill_background(old: &Rect, new: &Rect, buf: &mut Buffer) {
+pub fn fill_background(old: &Rect, new: &Rect, buf: &mut Buffer, theme: Theme) {
     let style = Style::default()
         .bg(ratatui::style::Color::Reset)
-        .fg(PALETTE.crust.into());
+        .fg(theme.secondary_bg);
     for y in old.top()..old.bottom() {
         for x in old.left()..old.right() {
             if !(x >= new.left() && x < new.right() && y >= new.top() && y < new.bottom()) {
@@ -13,7 +13,7 @@ pub fn fill_background(old: &Rect, new: &Rect, buf: &mut Buffer) {
                     .set_char(BRAILLE[bg_noise(x, y) % BRAILLE.len()])
                     .set_style(style);
             } else {
-                buf[(x, y)].set_bg(PALETTE.crust.into());
+                buf[(x, y)].set_bg(theme.background);
             }
         }
     }

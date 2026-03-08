@@ -4,15 +4,15 @@ use ratatui::{
     widgets::{Cell, Row, Table},
 };
 
-use crate::tui::{app::PALETTE, state::AppState};
+use crate::{config::Theme, tui::state::AppState};
 pub struct SessionDetails;
 
-fn row<'a>(key: &'static str, value: impl Into<Cell<'a>>) -> Row<'a> {
-    Row::new(vec![Cell::new(key).fg(PALETTE.green).bold(), value.into()])
+fn row<'a>(key: &'static str, value: impl Into<Cell<'a>>, theme: Theme) -> Row<'a> {
+    Row::new(vec![Cell::new(key).fg(theme.accent).bold(), value.into()])
 }
 
 impl SessionDetails {
-    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState) {
+    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState, theme: Theme) {
         let Some(session) = state.current_session() else {
             return;
         };
@@ -20,10 +20,10 @@ impl SessionDetails {
         let widths = constraints![>=1, *=1];
 
         let rows = vec![
-            row("Name", session.name()),
-            row("Created", session.created()),
-            row("Activity", session.last_activity()),
-            row("Clients", session.attached().to_string()),
+            row("Name", session.name(), theme),
+            row("Created", session.created(), theme),
+            row("Activity", session.last_activity(), theme),
+            row("Clients", session.attached().to_string(), theme),
         ];
 
         let table = Table::new(rows, widths);

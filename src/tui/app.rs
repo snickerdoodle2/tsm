@@ -18,8 +18,6 @@ use crate::{
     },
 };
 
-pub const PALETTE: catppuccin::FlavorColors = catppuccin::PALETTE.mocha.colors;
-
 pub struct App {
     config: Config,
     state: AppState,
@@ -176,12 +174,12 @@ impl App {
 
     fn layout(&self, area: Rect, buf: &mut Buffer) -> Box<[Rect]> {
         let layout = Layout::vertical(constraints![*=1, ==1]).split(area);
-        components::keybinds(&self.state)
+        components::keybinds(&self.state, self.config.theme)
             .centered()
             .render(layout[1], buf);
         let area = layout[0];
 
-        let title_style = Style::default().bold().fg(PALETTE.green.into());
+        let title_style = Style::default().bold().fg(self.config.theme.accent);
 
         let layout = if cfg!(feature = "debug") {
             Layout::horizontal(constraints![*=1, *=1, *=1])
@@ -221,23 +219,24 @@ impl App {
         let buf = frame.buffer_mut();
         let old_area = area;
         let area = self.get_area(area);
-        fill_background(&old_area, &area, buf);
+        fill_background(&old_area, &area, buf, self.config.theme);
 
         match self.state.view() {
             View::Normal | View::Search => {
                 let splits = self.layout(area, buf);
-                SessionDetails.render(splits[1], buf, &self.state);
+                SessionDetails.render(splits[1], buf, &self.state, self.config.theme);
 
                 if cfg!(feature = "debug") {
                     Paragraph::new(self.state.debug_info()).render(splits[2], buf);
                 }
 
                 let layout = Layout::vertical(constraints![*=1, ==1]).split(splits[0]);
-                SessionList.render(layout[0], buf, &self.state);
+                SessionList.render(layout[0], buf, &self.state, self.config.theme);
 
                 let area = layout[1];
                 if !self.state.search_buffer().is_empty() || self.state.view() == View::Search {
-                    let input = Paragraph::new(self.state.search_buffer()).bg(PALETTE.surface0);
+                    let input = Paragraph::new(self.state.search_buffer())
+                        .bg(self.config.theme.secondary_bg);
 
                     input.render(area.inner(Margin::new(1, 0)), buf);
                 }
@@ -255,10 +254,11 @@ impl App {
                     self.state.current_session().map(|s| s.name()).unwrap_or("")
                 );
                 let area = Modal::new(&title)
-                    .render(area, buf, &self.state)
+                    .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
-                let input = Paragraph::new(self.state.input_buffer()).bg(PALETTE.surface0);
+                let input =
+                    Paragraph::new(self.state.input_buffer()).bg(self.config.theme.secondary_bg);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
@@ -268,10 +268,11 @@ impl App {
             }
             View::Create => {
                 let area = Modal::new("Create")
-                    .render(area, buf, &self.state)
+                    .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
-                let input = Paragraph::new(self.state.input_buffer()).bg(PALETTE.surface0);
+                let input =
+                    Paragraph::new(self.state.input_buffer()).bg(self.config.theme.secondary_bg);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
@@ -281,7 +282,7 @@ impl App {
             }
             View::Delete => {
                 let area = Modal::new("Delete")
-                    .render(area, buf, &self.state)
+                    .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
                 Paragraph::new(format!(

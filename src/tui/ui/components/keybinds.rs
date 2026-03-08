@@ -3,9 +3,9 @@ use ratatui::{
     text::{Line, Span},
 };
 
-use crate::tui::{
-    app::PALETTE,
-    state::{AppState, View},
+use crate::{
+    config::Theme,
+    tui::state::{AppState, View},
 };
 
 enum KeybindStyle {
@@ -42,7 +42,7 @@ impl Keybind {
     }
 }
 
-pub fn keybinds(state: &AppState) -> Line<'_> {
+pub fn keybinds(state: &AppState, theme: Theme) -> Line<'_> {
     let keybinds = match state.view() {
         View::Normal => {
             vec![
@@ -85,19 +85,19 @@ pub fn keybinds(state: &AppState) -> Line<'_> {
     for Keybind { label, key, style } in keybinds {
         let (style, key_style) = match style {
             KeybindStyle::Normal => {
-                let s = Style::default().bg(PALETTE.base.into());
+                let s = Style::default().bg(theme.secondary_bg);
 
-                (s.fg(PALETTE.text.into()), s.fg(PALETTE.green.into()))
+                (s.fg(theme.text), s.fg(theme.accent))
             }
             KeybindStyle::Dimmed => {
-                let s = Style::default().bg(PALETTE.crust.into());
+                let s = Style::default().bg(theme.background);
 
-                (s.fg(PALETTE.surface2.into()), s.fg(PALETTE.red.into()))
+                (s.fg(theme.dimmed_text), s.fg(theme.danger))
             }
             KeybindStyle::Danger => {
-                let s = Style::default().bg(PALETTE.base.into());
+                let s = Style::default().bg(theme.secondary_bg);
 
-                (s.fg(PALETTE.text.into()), s.fg(PALETTE.red.into()))
+                (s.fg(theme.text), s.fg(theme.danger))
             }
         };
 
