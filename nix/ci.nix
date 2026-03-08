@@ -9,9 +9,12 @@
     ...
   }: {
     packages = {
-      build-workflows = pkgs.runCommand "copy-workflows" {} ''
-        mkdir -p $out/.github/workflows
-        cp -r ${config.githubActions.workflowsDir}/* $out/.github/workflows/
+      workflows = pkgs.pkgs.writeShellScriptBin "copy-workflows" ''
+        mkdir -p ./.github/workflows
+        cp --no-preserve=mode,ownership ${config.githubActions.workflowsDir}/* .github/workflows/
+      '';
+      check-workflows = pkgs.pkgs.writeShellScriptBin "copy-workflows" ''
+        diff ${config.githubActions.workflowsDir} .github/workflows/
       '';
     };
 
@@ -26,7 +29,7 @@
           pullRequest = {};
         };
 
-        jobs.build = {
+        jobs.nix = {
           runsOn = "ubuntu-latest";
 
           steps = [
@@ -35,8 +38,23 @@
               uses = "actions/checkout@v4";
             }
             {
-              name = "Build";
-              run = "nix build";
+              name = "Install Nix";
+              uses = "cachix/install-nix-action@v17";
+              with_ = {
+                extra_nix_config = "access-tokens = github.com=\${{ secrets.GITHUB_TOKEN }}";
+              };
+            }
+            {
+              name = "Check flake";
+              run = "nix flake check";
+            }
+            {
+              name = "Check formatting";
+              run = "nix fmt . -- --check";
+            }
+            {
+              name = "Check whether workflows are up to date";
+              run = "nix run .#check-workflows";
             }
           ];
         };
