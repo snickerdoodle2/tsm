@@ -1,12 +1,11 @@
 use anyhow::Result;
-use clap::Parser;
-use tsm::{Args, tui};
+use tsm::{Config, tui};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::parse();
+    let config = Config::new();
     let mut terminal = ratatui::init();
-    let mut app = tui::App::new(args)?;
+    let mut app = tui::App::new(config)?;
     let res = app.run(&mut terminal).await;
     ratatui::restore();
     res

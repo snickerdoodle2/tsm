@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    Args,
+    Config,
     tui::{
         event::{AppEvent, Event, EventHandler},
         helpers::fill_background,
@@ -21,15 +21,15 @@ use crate::{
 pub const PALETTE: catppuccin::FlavorColors = catppuccin::PALETTE.mocha.colors;
 
 pub struct App {
-    args: Args,
+    config: Config,
     state: AppState,
     events: EventHandler,
 }
 
 impl App {
-    pub fn new(args: Args) -> Result<Self> {
+    pub fn new(config: Config) -> Result<Self> {
         Ok(Self {
-            args,
+            config,
             state: AppState::new()?,
             events: EventHandler::new(),
         })
@@ -166,7 +166,7 @@ impl App {
     }
 
     fn get_area(&self, area: Rect) -> Rect {
-        if self.args.fullscreen() {
+        if self.config.fullscreen {
             area
         } else {
             area.centered_horizontally(Constraint::Length(100))
