@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use anyhow::Result;
 use clap::Parser;
 
@@ -6,13 +8,21 @@ mod theme;
 
 pub use theme::Theme;
 
-use crate::tmux;
-
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct Config {
-    pub session_id: usize,
     pub fullscreen: bool,
     pub theme: theme::Theme,
+    pub separator: Rc<str>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            fullscreen: Default::default(),
+            theme: Default::default(),
+            separator: ";".into(),
+        }
+    }
 }
 
 impl Config {
@@ -20,7 +30,6 @@ impl Config {
         let args = args::Args::parse();
 
         Ok(Self {
-            session_id: tmux::current_session_id()?,
             fullscreen: args.fullscreen,
             ..Self::default()
         })

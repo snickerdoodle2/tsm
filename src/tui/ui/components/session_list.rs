@@ -7,8 +7,8 @@ use ratatui::{
 };
 
 use crate::{
-    TmuxSession,
     config::Theme,
+    tmux::Session,
     tui::{state::AppState, ui::Spinner},
 };
 
@@ -43,7 +43,7 @@ impl SessionList {
     }
 }
 
-fn render_item(item: &TmuxSession, idx: usize, selected_idx: usize, theme: Theme) -> ListItem<'_> {
+fn render_item(item: &Session, idx: usize, selected_idx: usize, theme: Theme) -> ListItem<'_> {
     let relative_idx = match idx.abs_diff(selected_idx) {
         0 => Span::raw("0 "),
         x => format!(" {x}").into(),
@@ -67,8 +67,8 @@ fn render_item(item: &TmuxSession, idx: usize, selected_idx: usize, theme: Theme
     }
 }
 
-impl<'a> From<&'a TmuxSession> for ListItem<'a> {
-    fn from(value: &'a TmuxSession) -> Self {
+impl<'a> From<&'a Session> for ListItem<'a> {
+    fn from(value: &'a Session) -> Self {
         let line = Line::raw(value.name());
 
         ListItem::new(line)

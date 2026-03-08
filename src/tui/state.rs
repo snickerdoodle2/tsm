@@ -1,5 +1,8 @@
 // FIXME: probably should update session list only after keystroke
-use crate::TmuxSession;
+use crate::{
+    Config,
+    tmux::{self, Session},
+};
 use anyhow::{Context, Result, bail};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use std::mem;
@@ -21,12 +24,13 @@ pub struct AppState {
     view: View,
     repeat_buffer: u32,
     attached_session_id: usize,
+    tmux_client: tmux::Client,
 
-    sessions: Option<Vec<TmuxSession>>,
+    sessions: Option<Vec<Session>>,
     // TODO: add ouroboros (or similar crate) to fix searching...
     /// Selected session's id
     selected_session: Option<usize>,
-    to_delete_session: Option<TmuxSession>,
+    to_delete_session: Option<Session>,
     created_session_name: Option<Box<str>>,
 
     input_buffer: String,
@@ -39,9 +43,12 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(attached_session_id: usize) -> Result<Self> {
+    pub fn new(config: Config) -> Result<Self> {
+        let tmux_client = tmux::Client::new(config.separator.clone());
+
         Ok(Self {
-            attached_session_id,
+            attached_session_id: tmux_client.current_session()?,
+            tmux_client,
             ..Default::default()
         })
     }
@@ -113,7 +120,7 @@ impl AppState {
         self.repeat_buffer = 0;
     }
 
-    pub fn sessions(&self) -> Option<impl Iterator<Item = &TmuxSession>> {
+    pub fn sessions(&self) -> Option<impl Iterator<Item = &Session>> {
         // TODO: sort by score here??
         self.sessions.as_ref().map(|s| {
             s.iter().filter(|s| {
@@ -124,15 +131,15 @@ impl AppState {
         })
     }
 
-    fn sessions_mut(&mut self) -> Option<impl Iterator<Item = &mut TmuxSession>> {
+    fn sessions_mut(&mut self) -> Option<impl Iterator<Item = &mut Session>> {
         self.sessions.as_mut().map(|s| {
             s.iter_mut()
                 .filter(|s| s.name().starts_with(&self.search_buffer))
         })
     }
 
-    pub fn set_sessions(&mut self, sessions: Option<Vec<TmuxSession>>) {
-        self.sessions = sessions;
+    pub fn refetch_sessions(&mut self) {
+        self.sessions = self.tmux_client.list_sessions().ok();
         self.update_current_session();
     }
 
@@ -153,27 +160,31 @@ impl AppState {
     }
 
     pub fn rename_session(&mut self) {
-        // FIXME: to_string
+        // FIXME: state rewrite remove unsafe
         let new_name = self.input_buffer.to_string();
-        let Some(session) = self.current_session_mut() else {
-            return;
-        };
 
-        if let Ok(()) = session.rename(&new_name) {
-            self.view = View::Normal;
+        unsafe {
+            // raw pointer to self
+            let this: *mut Self = self;
+
+            // call the method through the pointer
+            let Some(session) = (*this).current_session_mut() else {
+                return;
+            };
+
+            // access tmux_client through the same pointer
+            if let Ok(()) = (*this).tmux_client.rename_session(session, &new_name) {
+                (*this).view = View::Normal;
+            }
         }
     }
 
     pub fn create_session(&mut self) -> Result<()> {
-        match TmuxSession::create(&self.input_buffer).context("Failed to create tmux session") {
-            Ok(_) => {
-                self.created_session_name = Some(self.input_buffer.as_str().into());
-                // HACK: while searching, if newly created session is not displayed, first time it's showed it's automatically selected
-                self.cancel_search();
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        self.tmux_client.create_session(&self.input_buffer)?;
+        self.created_session_name = Some(self.input_buffer.as_str().into());
+        // HACK: while searching, if newly created session is not displayed, first time it's showed it's automatically selected
+        self.cancel_search();
+        Ok(())
     }
 
     pub fn cycle_next(&mut self) {
@@ -202,7 +213,7 @@ impl AppState {
 
     pub fn select_session(&mut self) {
         if let Some(session) = self.current_session()
-            && let Ok(_) = session.select()
+            && let Ok(_) = self.tmux_client.select_session(session)
         {
             self.should_quit = true;
         }
@@ -217,10 +228,12 @@ impl AppState {
             bail!("Currently attached to session");
         }
 
-        session.delete()?;
+        let id = session.id();
+
+        self.tmux_client.delete_session(session)?;
 
         let sessions: Vec<_> = self.sessions().context("No sessions")?.collect();
-        if let Some(session_idx) = sessions.iter().position(|s| s.id() == session.id()) {
+        if let Some(session_idx) = sessions.iter().position(|s| s.id() == id) {
             let next_idx = (sessions.len() - 1).min(session_idx + 1);
             self.selected_session = Some(sessions[next_idx].id());
         }
@@ -234,14 +247,14 @@ impl AppState {
             .is_some_and(|s| s.id() != self.attached_session_id)
     }
 
-    pub fn current_session(&self) -> Option<&TmuxSession> {
+    pub fn current_session(&self) -> Option<&Session> {
         let selected_id = self.selected_session?;
         let mut sessions = self.sessions()?;
 
         sessions.find(|s| s.id() == selected_id)
     }
 
-    pub fn current_session_mut(&mut self) -> Option<&mut TmuxSession> {
+    pub fn current_session_mut(&mut self) -> Option<&mut Session> {
         let selected_id = self.selected_session?;
         let mut sessions = self.sessions_mut()?;
 
@@ -258,7 +271,7 @@ impl AppState {
             .map(|(i, _)| i)
     }
 
-    pub fn to_delete_session(&self) -> Option<&TmuxSession> {
+    pub fn to_delete_session(&self) -> Option<&Session> {
         self.to_delete_session.as_ref()
     }
 

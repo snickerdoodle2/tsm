@@ -27,7 +27,7 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Result<Self> {
         Ok(Self {
-            state: AppState::new(config.session_id)?,
+            state: AppState::new(config.clone())?,
             config,
             events: EventHandler::new(),
         })
@@ -139,7 +139,7 @@ impl App {
     fn handle_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Quit => self.state.quit(),
-            AppEvent::TmuxSessions(sessions) => self.state.set_sessions(sessions),
+            AppEvent::TmuxSessions => self.state.refetch_sessions(),
         }
     }
 
