@@ -20,6 +20,7 @@ pub struct AppState {
     frame_count: usize,
     view: View,
     repeat_buffer: u32,
+    attached_session_id: usize,
 
     sessions: Option<Vec<TmuxSession>>,
     // TODO: add ouroboros (or similar crate) to fix searching...
@@ -38,8 +39,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Result<Self> {
-        Ok(Default::default())
+    pub fn new(attached_session_id: usize) -> Result<Self> {
+        Ok(Self {
+            attached_session_id,
+            ..Default::default()
+        })
     }
 
     pub fn should_quit(&self) -> bool {
@@ -209,8 +213,8 @@ impl AppState {
             bail!("No session to delete");
         };
 
-        if session.attached() > 0 {
-            bail!("Someone is attached to the session");
+        if session.id() == self.attached_session_id {
+            bail!("Currently attached to session");
         }
 
         session.delete()?;
@@ -226,7 +230,8 @@ impl AppState {
     }
 
     pub fn can_delete_session(&self) -> bool {
-        self.current_session().is_some_and(|s| s.attached() == 0)
+        self.current_session()
+            .is_some_and(|s| s.id() != self.attached_session_id)
     }
 
     pub fn current_session(&self) -> Option<&TmuxSession> {

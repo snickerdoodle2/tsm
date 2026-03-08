@@ -12,6 +12,31 @@ pub enum TmuxError {
     TmuxError(String),
 }
 
+pub fn current_session_id() -> Result<usize, TmuxError> {
+    let output = Command::new("tmux")
+        .arg("display-message")
+        .arg("-p")
+        .arg("#{session_id}")
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("no server running") {
+            return Err(TmuxError::NoServer);
+        }
+        return Err(TmuxError::TmuxError(format!(
+            "tmux list-sessions: {}",
+            stderr.trim()
+        )));
+    }
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+
+    stdout.trim()[1..]
+        .parse()
+        .map_err(|_| TmuxError::TmuxError("Couldn't parse sesssion id".to_string()))
+}
+
 #[derive(Debug, Clone)]
 pub struct TmuxSession {
     id: usize,

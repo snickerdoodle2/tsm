@@ -27,8 +27,8 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Result<Self> {
         Ok(Self {
+            state: AppState::new(config.session_id)?,
             config,
-            state: AppState::new()?,
             events: EventHandler::new(),
         })
     }
