@@ -50,7 +50,7 @@ pub fn keybinds(state: &State, theme: Theme) -> Line<'_> {
                 Keybind::new("Down", "J"),
                 Keybind::new("Create", "N"),
                 Keybind::new("Rename", "R"),
-                Keybind::new("Kill", "D"), //.dimmed(!state.can_delete_session()),
+                Keybind::new("Kill", "D").dimmed(!state.can_delete()),
                 Keybind::new("Switch", "Enter"),
                 Keybind::new("Quit", "Q"),
             ]

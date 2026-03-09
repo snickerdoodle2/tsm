@@ -1,6 +1,7 @@
 mod input;
 mod mode;
 mod sessions;
+use anyhow::Result;
 use input::Input;
 pub use mode::{Mode, ModeType};
 use sessions::Sessions;
@@ -22,14 +23,17 @@ pub struct State {
     sessions: Sessions,
 
     session_cell: Option<tmux::Session>,
+    attached_id: usize,
 }
 
 impl State {
-    pub fn new(config: &Config) -> Self {
-        Self {
-            tmux_client: tmux::Client::new(config.separator.clone()),
+    pub fn new(config: &Config) -> Result<Self> {
+        let tmux_client = tmux::Client::new(config.separator.clone());
+        Ok(Self {
+            attached_id: tmux_client.current_session()?,
+            tmux_client,
             ..Default::default()
-        }
+        })
     }
 
     pub fn should_quit(&self) -> bool {
@@ -83,7 +87,9 @@ impl State {
 
     pub fn delete_mode(&mut self) {
         debug_assert!(self.mode == Mode::Normal);
-        if let Some(session) = self.sessions.current().cloned() {
+        if self.can_delete()
+            && let Some(session) = self.sessions.current().cloned()
+        {
             self.session_cell = Some(session);
             self.mode = Mode::Delete;
         }
@@ -220,6 +226,12 @@ impl State {
 
     pub fn sessions(&self) -> Option<impl Iterator<Item = &tmux::Session>> {
         self.sessions.sessions()
+    }
+
+    pub fn can_delete(&self) -> bool {
+        self.sessions
+            .current()
+            .is_some_and(|s| !s.is_attached(self.attached_id))
     }
 
     fn rename(&mut self) {

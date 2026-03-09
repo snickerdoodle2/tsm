@@ -29,4 +29,8 @@ impl Session {
     pub fn last_activity(&self) -> String {
         chrono_humanize::HumanTime::from(self.last_activity).to_string()
     }
+
+    pub fn is_attached(&self, id: usize) -> bool {
+        self.id == id
+    }
 }
