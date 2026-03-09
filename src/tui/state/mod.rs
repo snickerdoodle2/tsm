@@ -8,7 +8,7 @@ use input::Input;
 pub use mode::{Mode, ModeType};
 use sessions::Sessions;
 
-use crate::{Config, tmux};
+use crate::{Config, tmux, tui::event::EventHandler};
 
 #[derive(Default)]
 pub struct State {
@@ -128,10 +128,10 @@ impl State {
         }
     }
 
-    pub fn submit_input(&mut self) {
+    pub fn submit_input(&mut self, events: &EventHandler) {
         match self.mode {
             Mode::Rename => self.rename(),
-            Mode::Create => self.create(),
+            Mode::Create => self.create(events),
             Mode::Search => self.normal_mode(),
             Mode::Normal | Mode::Delete => unreachable!(),
         }
@@ -182,9 +182,9 @@ impl State {
     // ***********
     // * CONFIRM *
     // ***********
-    pub fn submit_confirm(&mut self) {
+    pub fn submit_confirm(&mut self, events: &EventHandler) {
         match self.mode {
-            Mode::Delete => self.delete(),
+            Mode::Delete => self.delete(events),
             Mode::Normal | Mode::Search | Mode::Rename | Mode::Create => unreachable!(),
         }
     }
@@ -249,11 +249,16 @@ impl State {
         self.normal_mode();
     }
 
-    fn create(&mut self) {
-        // TODO: Implement
+    fn create(&mut self, events: &EventHandler) {
+        let name = self.create_input.buffer();
+        if self.tmux_client.create_session(name).is_ok() {
+            self.sessions.set_created(name);
+            events.request_refetch();
+        }
+        self.normal_mode();
     }
 
-    fn delete(&mut self) {
+    fn delete(&mut self, events: &EventHandler) {
         // TODO: implement
     }
 

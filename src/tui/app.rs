@@ -79,7 +79,7 @@ impl App {
             KeyCode::Left => self.state.cursor_left(),
             KeyCode::Right => self.state.cursor_right(),
             KeyCode::Esc => self.state.cancel_input(),
-            KeyCode::Enter => self.state.submit_input(),
+            KeyCode::Enter => self.state.submit_input(&self.events),
             _ => {}
         }
     }
@@ -120,7 +120,7 @@ impl App {
     fn handle_confirm_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Esc => self.state.normal_mode(),
-            KeyCode::Enter => self.state.submit_confirm(),
+            KeyCode::Enter => self.state.submit_confirm(&self.events),
             _ => {}
         }
     }

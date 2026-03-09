@@ -1,4 +1,4 @@
-use std::cmp::Reverse;
+use std::{cmp::Reverse, mem};
 
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
@@ -8,8 +8,12 @@ use crate::tmux;
 pub struct Sessions {
     sessions: Option<Vec<tmux::Session>>,
     filtered: Vec<usize>,
+
     current_session: Option<usize>,
     current_filtered: Option<usize>,
+
+    created_cell: Option<Box<str>>,
+
     matcher: SkimMatcherV2,
 }
 
@@ -94,13 +98,28 @@ impl Sessions {
         self.update_current();
     }
 
+    pub fn set_created(&mut self, name: &str) {
+        self.created_cell = Some(name.into());
+    }
+
     fn update_current(&mut self) {
         self.current_session = self
             .current_filtered
             .and_then(|i| self.filtered.get(i).copied());
     }
 
+    // FIXME: wtf is this xdd
     fn restore_current(&mut self, prev_id: Option<usize>) {
+        if let Some(created) = mem::take(&mut self.created_cell)
+            && let Some(sessions) = self.sessions.as_ref()
+            && let Some(idx) = sessions.iter().position(|s| s.name() == created.as_ref())
+            && let Some(filtered_idx) = self.filtered.iter().position(|&i| i == idx)
+        {
+            self.current_session = Some(idx);
+            self.current_filtered = Some(filtered_idx);
+            return;
+        }
+
         if let Some(prev_id) = prev_id
             && let Some(sessions) = self.sessions.as_ref()
             && let Some(idx) = sessions.iter().position(|s| s.id() == prev_id)
@@ -108,9 +127,10 @@ impl Sessions {
         {
             self.current_session = Some(idx);
             self.current_filtered = Some(filtered_idx);
-        } else {
-            self.current_session = self.filtered.first().copied();
-            self.current_filtered = Some(0);
+            return;
         }
+
+        self.current_session = self.filtered.first().copied();
+        self.current_filtered = Some(0);
     }
 }
