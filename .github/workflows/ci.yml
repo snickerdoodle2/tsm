@@ -10,6 +10,12 @@ jobs:
         uses: cachix/install-nix-action@v17
         with:
           extra_nix_config: access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Setup nix cache
+        uses: actions/cache@v5
+        with:
+          key: ${{ runner.os }}-tsm-nix-nix-${{ hashFiles('**/flake.lock') }}
+          path: |
+            /nix/store
       - name: Check flake
         run: nix flake check
       - name: Check formatting
@@ -25,6 +31,12 @@ jobs:
         uses: cachix/install-nix-action@v17
         with:
           extra_nix_config: access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Setup nix cache
+        uses: actions/cache@v5
+        with:
+          key: ${{ runner.os }}-tsm-nix-rust-${{ hashFiles('**/flake.lock') }}
+          path: |
+            /nix/store
       - name: Setup rust cache
         uses: actions/cache@v5
         with:

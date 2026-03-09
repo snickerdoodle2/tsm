@@ -1,5 +1,5 @@
 {inputs, ...}: let
-  init-steps = [
+  init-steps = name: [
     {
       name = "Checkout";
       uses = "actions/checkout@v6";
@@ -9,6 +9,16 @@
       uses = "cachix/install-nix-action@v17";
       with_ = {
         extra_nix_config = "access-tokens = github.com=\${{ secrets.GITHUB_TOKEN }}";
+      };
+    }
+    {
+      name = "Setup nix cache";
+      uses = "actions/cache@v5";
+      with_ = {
+        path = ''
+          /nix/store
+        '';
+        key = "\${{ runner.os }}-tsm-nix-${name}-\${{ hashFiles('**/flake.lock') }}";
       };
     }
   ];
@@ -47,7 +57,7 @@ in {
           runsOn = "ubuntu-latest";
 
           steps =
-            init-steps
+            (init-steps "nix")
             ++ [
               {
                 name = "Check flake";
@@ -67,7 +77,7 @@ in {
         jobs.rust = {
           runsOn = "ubuntu-latest";
           steps =
-            init-steps
+            (init-steps "rust")
             ++ [
               {
                 name = "Setup rust cache";
