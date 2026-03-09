@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
 use crate::tmux::session::Session;
@@ -66,6 +67,17 @@ impl SessionBuilder {
 
         if self.id.is_some() {
             return Err(ParseError::DuplicateField(NAME));
+        }
+
+        if data.is_empty() {
+            return Err(ParseError::Parsing(NAME, anyhow!("empty data")));
+        }
+
+        if &data[0..1] != "$" {
+            return Err(ParseError::Parsing(
+                NAME,
+                anyhow!("expected id to start with $"),
+            ));
         }
 
         self.id = Some(
@@ -260,6 +272,15 @@ mod tests {
 
         let error = assert_err!(fieldset.parse_session(line));
         assert_matches!(error, ParseError::DuplicateField("id"));
+    }
+
+    #[test]
+    fn fails_to_parse_invalid_fields() {
+        let fieldset = Fieldset::default();
+        let line = "42;foo;2281580400;2281623600;67";
+
+        let error = assert_err!(fieldset.parse_session(line));
+        assert_matches!(error, ParseError::Parsing("id", _));
     }
 
     #[test]
