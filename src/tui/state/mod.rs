@@ -1,7 +1,9 @@
 mod input;
 mod mode;
+mod sessions;
 use input::Input;
 pub use mode::{Mode, ModeType};
+use sessions::Sessions;
 
 use crate::tmux;
 
@@ -16,4 +18,6 @@ pub struct State {
     search_input: Input,
     rename_input: Input,
     create_input: Input,
+
+    sessions: Sessions,
 }
