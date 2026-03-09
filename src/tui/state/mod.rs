@@ -1,6 +1,8 @@
 mod input;
 mod mode;
 mod sessions;
+use std::mem;
+
 use anyhow::Result;
 use input::Input;
 pub use mode::{Mode, ModeType};
@@ -235,7 +237,16 @@ impl State {
     }
 
     fn rename(&mut self) {
-        // TODO: Implement
+        if let Some(session) = mem::take(&mut self.session_cell)
+            && let Some(cur_session) = self.sessions.current_mut()
+            && session.id() == cur_session.id()
+        {
+            let _ = self
+                .tmux_client
+                .rename_session(cur_session, self.rename_input.buffer());
+        }
+
+        self.normal_mode();
     }
 
     fn create(&mut self) {
