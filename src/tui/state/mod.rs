@@ -191,12 +191,12 @@ impl State {
         self.maybe_update_filter();
     }
 
-    fn input(&self) -> &Input {
+    fn input(&self) -> Option<&Input> {
         match self.mode {
-            Mode::Search => &self.search_input,
-            Mode::Rename => &self.rename_input,
-            Mode::Create => &self.create_input,
-            Mode::Normal | Mode::Delete => unreachable!(),
+            Mode::Search => Some(&self.search_input),
+            Mode::Rename => Some(&self.rename_input),
+            Mode::Create => Some(&self.create_input),
+            Mode::Normal | Mode::Delete => None,
         }
     }
 
@@ -312,7 +312,20 @@ impl State {
     // * MISC *
     // ********
     pub fn debug_info(&self) -> String {
-        // TODO: implement
-        "BOOM BOOM BOOM BOOM BOOM".to_string()
+        let input = self.input();
+        format!(
+            r#"mode: {:?}
+buffer: {:?}
+cursor: {:?}
+frame_count: {}
+repeat: {:?}
+id: {:?}"#,
+            self.mode,
+            input.map(Input::buffer),
+            input.map(Input::cursor),
+            self.frame_count,
+            self.repeat,
+            self.sessions.current().map(tmux::Session::id)
+        )
     }
 }
