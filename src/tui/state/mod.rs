@@ -259,7 +259,15 @@ impl State {
     }
 
     fn delete(&mut self, events: &EventHandler) {
-        // TODO: implement
+        if let Some(session) = mem::take(&mut self.session_cell)
+            && let Some(cur_session) = self.sessions.current()
+            && session.id() == cur_session.id()
+            && self.tmux_client.delete_session(session).is_ok()
+        {
+            self.sessions.set_deleted();
+            events.request_refetch();
+        }
+        self.normal_mode();
     }
 
     // ********

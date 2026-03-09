@@ -13,6 +13,7 @@ pub struct Sessions {
     current_filtered: Option<usize>,
 
     created_cell: Option<Box<str>>,
+    deleted_cell: Option<usize>,
 
     matcher: SkimMatcherV2,
 }
@@ -102,6 +103,10 @@ impl Sessions {
         self.created_cell = Some(name.into());
     }
 
+    pub fn set_deleted(&mut self) {
+        self.deleted_cell = self.current_filtered;
+    }
+
     fn update_current(&mut self) {
         self.current_session = self
             .current_filtered
@@ -110,6 +115,14 @@ impl Sessions {
 
     // FIXME: wtf is this xdd
     fn restore_current(&mut self, prev_id: Option<usize>) {
+        if let Some(deleted) = mem::take(&mut self.deleted_cell)
+            && deleted < self.filtered.len()
+        {
+            self.current_filtered = Some(deleted);
+            self.update_current();
+            return;
+        }
+
         if let Some(created) = mem::take(&mut self.created_cell)
             && let Some(sessions) = self.sessions.as_ref()
             && let Some(idx) = sessions.iter().position(|s| s.name() == created.as_ref())
