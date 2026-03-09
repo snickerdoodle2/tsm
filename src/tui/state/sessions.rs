@@ -1,3 +1,5 @@
+use std::cmp::Reverse;
+
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 use crate::tmux;
@@ -7,14 +9,22 @@ pub struct Sessions {
     sessions: Option<Vec<tmux::Session>>,
     filtered: Vec<usize>,
     current_session: Option<usize>,
+    current_filtered: Option<usize>,
     matcher: SkimMatcherV2,
 }
 
 impl Sessions {
     pub fn set(&mut self, sessions: Option<Vec<tmux::Session>>, pattern: &str) {
-        // TODO: probably should migrate current session
+        let prev_id = self
+            .sessions
+            .as_ref()
+            .zip(self.current_session)
+            .and_then(|(s, i)| s.get(i))
+            .map(tmux::Session::id);
+
         self.sessions = sessions;
         self.update_filter(pattern);
+        self.restore_current(prev_id);
     }
 
     /// Returns sessions after filtering
@@ -36,7 +46,7 @@ impl Sessions {
     }
 
     pub fn current_idx(&self) -> Option<usize> {
-        self.current_session
+        self.current_filtered
     }
 
     pub fn update_filter(&mut self, pattern: &str) {
@@ -54,47 +64,53 @@ impl Sessions {
             })
             .collect();
 
-        indexes.sort_by_key(|(_, score)| *score);
+        indexes.sort_by_key(|(_, score)| Reverse(*score));
 
         self.filtered = indexes.into_iter().map(|(i, _)| i).collect();
 
-        self.current_session = match self.current_session {
-            None => self.filtered.get(0).copied(),
-            Some(x) if !self.filtered.contains(&x) => self.filtered.get(0).copied(),
-            Some(x) => Some(x),
-        };
+        self.current_filtered = Some(0);
+        self.current_session = self.filtered.first().copied();
     }
 
     // TODO: support repeat
     pub fn cycle_next(&mut self) {
-        let Some(cur) = self.current_session else {
-            self.current_session = self.filtered.get(0).copied();
-            return;
-        };
+        self.current_filtered = Some(
+            self.current_filtered
+                .map(|x| x.saturating_add(1).min(self.filtered.len() - 1))
+                .unwrap_or_default(),
+        );
 
-        let Some(pos) = self.filtered.iter().position(|&x| x == cur) else {
-            self.current_session = self.filtered.get(0).copied();
-            return;
-        };
-
-        self.current_session = self
-            .filtered
-            .get((pos + 1).min(self.filtered.len()))
-            .copied();
+        self.update_current();
     }
 
     // TODO: support repeat
     pub fn cycle_prev(&mut self) {
-        let Some(cur) = self.current_session else {
-            self.current_session = self.filtered.last().copied();
-            return;
-        };
+        self.current_filtered = Some(
+            self.current_filtered
+                .map(|x| x.saturating_sub(1))
+                .unwrap_or_else(|| self.filtered.len() - 1),
+        );
 
-        let Some(pos) = self.filtered.iter().position(|&x| x == cur) else {
-            self.current_session = self.filtered.get(0).copied();
-            return;
-        };
+        self.update_current();
+    }
 
-        self.current_session = self.filtered.get(pos.saturating_sub(1)).copied();
+    fn update_current(&mut self) {
+        self.current_session = self
+            .current_filtered
+            .and_then(|i| self.filtered.get(i).copied());
+    }
+
+    fn restore_current(&mut self, prev_id: Option<usize>) {
+        if let Some(prev_id) = prev_id
+            && let Some(sessions) = self.sessions.as_ref()
+            && let Some(idx) = sessions.iter().position(|s| s.id() == prev_id)
+            && let Some(filtered_idx) = self.filtered.iter().position(|&i| i == idx)
+        {
+            self.current_session = Some(idx);
+            self.current_filtered = Some(filtered_idx);
+        } else {
+            self.current_session = self.filtered.first().copied();
+            self.current_filtered = Some(0);
+        }
     }
 }

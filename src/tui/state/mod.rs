@@ -114,8 +114,10 @@ impl State {
     }
 
     pub fn cancel_search(&mut self) {
-        self.search_input.clear();
-        self.sessions.update_filter("");
+        if !self.search_input.buffer().is_empty() {
+            self.search_input.clear();
+            self.sessions.update_filter("");
+        }
     }
 
     pub fn submit_input(&mut self) {
