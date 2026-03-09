@@ -1,7 +1,7 @@
 mod input;
 mod mode;
 mod sessions;
-use std::mem;
+use std::{mem, num::NonZeroUsize};
 
 use anyhow::Result;
 use input::Input;
@@ -14,7 +14,7 @@ use crate::{Config, tmux, tui::event::EventHandler};
 pub struct State {
     should_quit: bool,
     frame_count: usize,
-    repeat: u8,
+    repeat: Option<NonZeroUsize>,
     mode: Mode,
     tmux_client: tmux::Client,
 
@@ -95,6 +95,29 @@ impl State {
             self.session_cell = Some(session);
             self.mode = Mode::Delete;
         }
+    }
+
+    // **********
+    // * REPEAT *
+    // **********
+
+    pub fn push_repeat(&mut self, digit: u32) {
+        self.repeat = match self.repeat {
+            Some(repeat) => Some(
+                repeat
+                    .saturating_mul(NonZeroUsize::new(10).unwrap())
+                    .saturating_add(digit as usize),
+            ),
+            None => NonZeroUsize::new(digit as usize),
+        }
+    }
+
+    pub fn reset_repeat(&mut self) {
+        self.repeat = None;
+    }
+
+    fn consume_repeat(&mut self) -> usize {
+        mem::take(&mut self.repeat).map(|r| r.get()).unwrap_or(1)
     }
 
     // *********
@@ -194,11 +217,13 @@ impl State {
     // ************
 
     pub fn cycle_next(&mut self) {
-        self.sessions.cycle_next();
+        let repeat = self.consume_repeat();
+        self.sessions.cycle_next(repeat);
     }
 
     pub fn cycle_prev(&mut self) {
-        self.sessions.cycle_prev();
+        let repeat = self.consume_repeat();
+        self.sessions.cycle_prev(repeat);
     }
 
     pub fn select(&mut self) {

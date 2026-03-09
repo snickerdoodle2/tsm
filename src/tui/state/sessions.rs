@@ -77,22 +77,20 @@ impl Sessions {
         self.current_session = self.filtered.first().copied();
     }
 
-    // TODO: support repeat
-    pub fn cycle_next(&mut self) {
+    pub fn cycle_next(&mut self, repeat: usize) {
         self.current_filtered = Some(
             self.current_filtered
-                .map(|x| x.saturating_add(1).min(self.filtered.len() - 1))
+                .map(|x| x.saturating_add(repeat).min(self.filtered.len() - 1))
                 .unwrap_or_default(),
         );
 
         self.update_current();
     }
 
-    // TODO: support repeat
-    pub fn cycle_prev(&mut self) {
+    pub fn cycle_prev(&mut self, repeat: usize) {
         self.current_filtered = Some(
             self.current_filtered
-                .map(|x| x.saturating_sub(1))
+                .map(|x| x.saturating_sub(repeat))
                 .unwrap_or_else(|| self.filtered.len() - 1),
         );
 

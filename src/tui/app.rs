@@ -104,17 +104,17 @@ impl App {
             KeyCode::Char('n') => self.state.create_mode(),
             KeyCode::Char('d') => self.state.delete_mode(),
 
-            // KeyCode::Char(digit) if digit.is_ascii_digit() => {
-            //     digit_input = true;
-            //     let digit = digit.to_digit(10).unwrap();
-            //     self.state.push_repeat(digit);
-            // }
+            KeyCode::Char(digit) if digit.is_ascii_digit() => {
+                digit_input = true;
+                let digit = digit.to_digit(10).unwrap();
+                self.state.push_repeat(digit);
+            }
             _ => {}
         }
 
-        // if !digit_input {
-        //     self.state.reset_repeat();
-        // }
+        if !digit_input {
+            self.state.reset_repeat();
+        }
     }
 
     fn handle_confirm_mode_key_event(&mut self, event: KeyEvent) {
