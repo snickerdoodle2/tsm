@@ -1,4 +1,6 @@
+mod input;
 mod mode;
+use input::Input;
 pub use mode::{Mode, ModeType};
 
 use crate::tmux;
@@ -10,4 +12,8 @@ pub struct State {
     repeat: u8,
     mode: Mode,
     tmux_client: tmux::Client,
+
+    search_input: Input,
+    rename_input: Input,
+    create_input: Input,
 }
