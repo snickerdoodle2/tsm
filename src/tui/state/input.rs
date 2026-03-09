@@ -15,15 +15,18 @@ impl Input {
 
     pub fn set(&mut self, buf: &str) {
         self.buffer.replace_range(.., buf);
+        self.cursor = buf.chars().count();
     }
 
     pub fn clear(&mut self) {
         self.buffer.clear();
+        self.cursor = 0;
     }
 
     pub fn put_char(&mut self, c: char) {
         let idx = self.byte_index();
         self.buffer.insert(idx, c);
+        self.cursor_right();
     }
 
     pub fn remove_char(&mut self) {
