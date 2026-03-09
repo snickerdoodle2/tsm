@@ -162,18 +162,12 @@ impl State {
 
     pub fn put_char(&mut self, c: char) {
         self.input_mut().put_char(c);
-
-        if self.mode == Mode::Search {
-            self.sessions.update_filter(self.search_input.buffer());
-        }
+        self.maybe_update_filter();
     }
 
     pub fn remove_char(&mut self) {
         self.input_mut().remove_char();
-
-        if self.mode == Mode::Search {
-            self.sessions.update_filter(self.search_input.buffer());
-        }
+        self.maybe_update_filter();
     }
 
     pub fn cursor_left(&mut self) {
@@ -182,6 +176,19 @@ impl State {
 
     pub fn cursor_right(&mut self) {
         self.input_mut().cursor_right();
+    }
+
+    pub fn cursor_start(&mut self) {
+        self.input_mut().cursor_start();
+    }
+
+    pub fn cursor_end(&mut self) {
+        self.input_mut().cursor_end();
+    }
+
+    pub fn remove_till_start(&mut self) {
+        self.input_mut().remove_till_start();
+        self.maybe_update_filter();
     }
 
     fn input(&self) -> &Input {
@@ -199,6 +206,12 @@ impl State {
             Mode::Rename => &mut self.rename_input,
             Mode::Create => &mut self.create_input,
             Mode::Normal | Mode::Delete => unreachable!(),
+        }
+    }
+
+    fn maybe_update_filter(&mut self) {
+        if self.mode == Mode::Search {
+            self.sessions.update_filter(self.search_input.buffer());
         }
     }
 

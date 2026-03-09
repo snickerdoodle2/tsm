@@ -65,15 +65,15 @@ impl App {
 
     fn handle_input_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
-            // KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
-            //     self.state.move_cursor_start();
-            // }
-            // KeyCode::Char('e') if event.modifiers == KeyModifiers::CONTROL => {
-            //     self.state.move_cursor_end();
-            // }
-            // KeyCode::Char('w') if event.modifiers == KeyModifiers::CONTROL => {
-            //     self.state.remove_till_start();
-            // }
+            KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.cursor_start();
+            }
+            KeyCode::Char('e') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.cursor_end();
+            }
+            KeyCode::Char('w') if event.modifiers == KeyModifiers::CONTROL => {
+                self.state.remove_till_start();
+            }
             KeyCode::Char(c) => self.state.put_char(c),
             KeyCode::Backspace => self.state.remove_char(),
             KeyCode::Left => self.state.cursor_left(),

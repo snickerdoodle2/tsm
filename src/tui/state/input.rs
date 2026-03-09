@@ -49,6 +49,25 @@ impl Input {
         self.cursor = self.clamp(idx);
     }
 
+    pub fn cursor_start(&mut self) {
+        self.cursor = 0;
+    }
+
+    pub fn cursor_end(&mut self) {
+        self.cursor = self.buffer.chars().count();
+    }
+
+    pub fn remove_till_start(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+
+        let byte_pos = self.byte_index();
+        self.cursor = 0;
+
+        let _ = self.buffer.drain(0..byte_pos);
+    }
+
     fn byte_index(&self) -> usize {
         self.buffer
             .char_indices()
