@@ -145,3 +145,10 @@ impl Sessions {
         self.current_filtered = Some(0);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // TODO: write tests
+    #[test]
+    fn todo() {}
+}
