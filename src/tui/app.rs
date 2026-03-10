@@ -2,19 +2,13 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    macros::constraints,
-    prelude::*,
-    symbols::merge::MergeStrategy,
-    widgets::{Block, BorderType, Paragraph},
 };
 
 use crate::{
     Config,
     tui::{
         event::{AppEvent, Event, EventHandler},
-        helpers::fill_background,
-        state::{Mode, ModeType, State},
-        ui::components::{self, Modal, SessionDetails, SessionList},
+        state::{ModeType, State},
     },
 };
 
@@ -35,7 +29,7 @@ impl App {
 
     pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         while !self.state.should_quit() {
-            terminal.draw(|frame| self.draw(frame))?;
+            // terminal.draw(|frame| self.draw(frame))?;
             self.handle_events().await?;
         }
         Ok(())
@@ -134,143 +128,5 @@ impl App {
 
     fn exit(&mut self) {
         self.events.send(AppEvent::Quit);
-    }
-
-    fn draw(&self, frame: &mut Frame) {
-        self.render(frame.area(), frame);
-    }
-
-    fn get_area(&self, area: Rect) -> Rect {
-        if self.config.fullscreen {
-            area
-        } else {
-            area.centered_horizontally(Constraint::Length(100))
-                .centered_vertically(Constraint::Length(30))
-        }
-    }
-
-    fn layout(&self, area: Rect, buf: &mut Buffer) -> Box<[Rect]> {
-        let layout = Layout::vertical(constraints![*=1, ==1]).split(area);
-        components::keybinds(&self.state, self.config.theme)
-            .centered()
-            .render(layout[1], buf);
-        let area = layout[0];
-
-        let title_style = Style::default().bold().fg(self.config.theme.accent);
-
-        let layout = if cfg!(feature = "debug") {
-            Layout::horizontal(constraints![*=1, *=1, *=1])
-        } else {
-            Layout::horizontal(constraints![*=1, *=1])
-        }
-        .split(area);
-
-        let left_block = Block::bordered()
-            .border_type(BorderType::Plain)
-            .title_top(Line::styled("Sessions", title_style).bold())
-            .merge_borders(MergeStrategy::Fuzzy);
-        let left_area = left_block.inner(layout[0]);
-        left_block.render(layout[0], buf);
-
-        let middle_block = Block::bordered()
-            .border_type(BorderType::Plain)
-            .title_top(Line::styled("Details", title_style).bold().left_aligned())
-            .merge_borders(MergeStrategy::Fuzzy);
-        let middle_area = middle_block.inner(layout[1]);
-        middle_block.render(layout[1], buf);
-
-        if cfg!(feature = "debug") {
-            let right_block = Block::bordered()
-                .border_type(BorderType::Plain)
-                .merge_borders(symbols::merge::MergeStrategy::Fuzzy);
-            let right_area = right_block.inner(layout[2]);
-            right_block.render(layout[2], buf);
-
-            Box::new([left_area, middle_area, right_area])
-        } else {
-            Box::new([left_area, middle_area])
-        }
-    }
-
-    fn render(&self, area: Rect, frame: &mut Frame) {
-        let buf = frame.buffer_mut();
-        let old_area = area;
-        let area = self.get_area(area);
-        fill_background(&old_area, &area, buf, self.config.theme);
-
-        match self.state.mode() {
-            Mode::Normal | Mode::Search => {
-                let splits = self.layout(area, buf);
-                SessionDetails.render(splits[1], buf, &self.state, self.config.theme);
-
-                if cfg!(feature = "debug") {
-                    Paragraph::new(self.state.debug_info()).render(splits[2], buf);
-                }
-
-                let layout = Layout::vertical(constraints![*=1, ==1]).split(splits[0]);
-                SessionList.render(layout[0], buf, &self.state, self.config.theme);
-
-                let area = layout[1];
-                if !self.state.search_input().buffer().is_empty()
-                    || self.state.mode() == Mode::Search
-                {
-                    let input = Paragraph::new(self.state.search_input().buffer())
-                        .bg(self.config.theme.secondary_bg);
-
-                    input.render(area.inner(Margin::new(1, 0)), buf);
-                }
-
-                if self.state.mode() == Mode::Search {
-                    frame.set_cursor_position(Position::new(
-                        area.x + self.state.search_input().cursor() as u16 + 1,
-                        area.y,
-                    ));
-                }
-            }
-            Mode::Rename => {
-                let title = format!(
-                    "Rename {}",
-                    self.state.session_cell().map(|s| s.name()).unwrap_or("")
-                );
-                let area = Modal::new(&title)
-                    .render(area, buf, &self.state, self.config.theme)
-                    .centered_vertically(Constraint::Max(1));
-
-                let input = Paragraph::new(self.state.rename_input().buffer())
-                    .bg(self.config.theme.secondary_bg);
-
-                input.render(area.inner(Margin::new(1, 0)), buf);
-                frame.set_cursor_position(Position::new(
-                    area.x + self.state.rename_input().cursor() as u16 + 1,
-                    area.y,
-                ));
-            }
-            Mode::Create => {
-                let area = Modal::new("Create")
-                    .render(area, buf, &self.state, self.config.theme)
-                    .centered_vertically(Constraint::Max(1));
-
-                let input = Paragraph::new(self.state.create_input().buffer())
-                    .bg(self.config.theme.secondary_bg);
-
-                input.render(area.inner(Margin::new(1, 0)), buf);
-                frame.set_cursor_position(Position::new(
-                    area.x + self.state.create_input().cursor() as u16 + 1,
-                    area.y,
-                ));
-            }
-            Mode::Delete => {
-                let area = Modal::new("Delete")
-                    .render(area, buf, &self.state, self.config.theme)
-                    .centered_vertically(Constraint::Max(1));
-
-                Paragraph::new(format!(
-                    "Are you sure you want to delete {}?",
-                    self.state.session_cell().map(|s| s.name()).unwrap_or("")
-                ))
-                .centered()
-                .render(area, buf);
-            }
-        }
     }
 }
