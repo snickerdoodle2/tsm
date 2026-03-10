@@ -9,7 +9,7 @@ use crate::{
     tui::{
         Layout,
         event::{AppEvent, Event, EventHandler},
-        state::{ModeType, State},
+        state::{Mode, ModeType, State},
     },
 };
 
@@ -32,7 +32,7 @@ impl App {
         while !self.state.should_quit() {
             let mut handle_events = false;
             terminal.draw(|frame| {
-                handle_events = Layout::new(&self.config, &self.state).draw(frame).is_some();
+                handle_events = Layout::new(&self.config, &self.state).draw(frame);
             })?;
             self.handle_events(handle_events).await?;
         }
@@ -92,24 +92,26 @@ impl App {
     fn handle_normal_mode_key_event(&mut self, event: KeyEvent) {
         let mut digit_input = false;
 
-        match event.code {
-            KeyCode::Char('q') => self.exit(),
-            KeyCode::Char('c') | KeyCode::Char('C') if event.modifiers == KeyModifiers::CONTROL => {
+        match (self.state.mode(), event.code) {
+            (_, KeyCode::Char('q')) => self.exit(),
+            (_, KeyCode::Char('c')) if event.modifiers == KeyModifiers::CONTROL => {
                 self.exit();
             }
+            (_, KeyCode::Char('[')) => self.state.mode_prev(),
+            (_, KeyCode::Char(']')) => self.state.mode_next(),
 
-            KeyCode::Down | KeyCode::Char('j') => self.state.cycle_next(),
-            KeyCode::Up | KeyCode::Char('k') => self.state.cycle_prev(),
+            (Mode::Normal, KeyCode::Down | KeyCode::Char('j')) => self.state.cycle_next(),
+            (Mode::Normal, KeyCode::Up | KeyCode::Char('k')) => self.state.cycle_prev(),
 
-            KeyCode::Enter => self.state.select(),
-            KeyCode::Esc => self.state.cancel_search(),
+            (Mode::Normal, KeyCode::Enter) => self.state.select(),
+            (Mode::Normal, KeyCode::Esc) => self.state.cancel_search(),
 
-            KeyCode::Char('s') => self.state.search_mode(),
-            KeyCode::Char('r') => self.state.rename_mode(),
-            KeyCode::Char('n') => self.state.create_mode(),
-            KeyCode::Char('d') => self.state.delete_mode(),
+            (Mode::Normal, KeyCode::Char('s')) => self.state.search_mode(),
+            (Mode::Normal, KeyCode::Char('r')) => self.state.rename_mode(),
+            (Mode::Normal, KeyCode::Char('n')) => self.state.create_mode(),
+            (Mode::Normal, KeyCode::Char('d')) => self.state.delete_mode(),
 
-            KeyCode::Char(digit) if digit.is_ascii_digit() => {
+            (Mode::Normal, KeyCode::Char(digit)) if digit.is_ascii_digit() => {
                 digit_input = true;
                 let digit = digit.to_digit(10).unwrap();
                 self.state.push_repeat(digit);

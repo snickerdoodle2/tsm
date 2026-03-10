@@ -2,6 +2,7 @@
 pub enum Mode {
     #[default]
     Normal,
+    Details,
     Search,
     Rename,
     Create,
@@ -11,7 +12,7 @@ pub enum Mode {
 impl Mode {
     pub fn mode_type(&self) -> ModeType {
         match self {
-            Mode::Normal => ModeType::Normal,
+            Mode::Normal | Mode::Details => ModeType::Normal,
             Mode::Search | Mode::Rename | Mode::Create => ModeType::Input,
             Mode::Delete => ModeType::Confirm,
         }
