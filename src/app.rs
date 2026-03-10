@@ -7,6 +7,7 @@ use ratatui::{
 use crate::{
     Config,
     tui::{
+        Layout,
         event::{AppEvent, Event, EventHandler},
         state::{ModeType, State},
     },
@@ -29,18 +30,21 @@ impl App {
 
     pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         while !self.state.should_quit() {
-            // terminal.draw(|frame| self.draw(frame))?;
-            self.handle_events().await?;
+            let mut handle_events = false;
+            terminal.draw(|frame| {
+                handle_events = Layout::new(&self.config, &self.state).draw(frame).is_some();
+            })?;
+            self.handle_events(handle_events).await?;
         }
         Ok(())
     }
 
-    async fn handle_events(&mut self) -> Result<()> {
+    async fn handle_events(&mut self, handle_events: bool) -> Result<()> {
         match self.events.next().await? {
             Event::Tick => self.state.tick(),
             Event::Crossterm(event) => {
                 if let crossterm::event::Event::Key(key_event) = event {
-                    self.handle_key_event(key_event);
+                    self.handle_key_event(key_event, handle_events);
                 }
             }
             Event::App(event) => self.handle_app_event(event),
@@ -49,7 +53,14 @@ impl App {
         Ok(())
     }
 
-    fn handle_key_event(&mut self, event: KeyEvent) {
+    fn handle_key_event(&mut self, event: KeyEvent, handle_events: bool) {
+        if !handle_events {
+            if event.code.is_char('q') {
+                self.exit();
+            }
+            return;
+        }
+
         match self.state.mode().mode_type() {
             ModeType::Normal => self.handle_normal_mode_key_event(event),
             ModeType::Confirm => self.handle_confirm_mode_key_event(event),
