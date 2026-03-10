@@ -9,19 +9,19 @@ use ratatui::{
 use crate::{
     config::Theme,
     tmux::Session,
-    tui::{state::AppState, ui::Spinner},
+    tui::{state::State, ui::Spinner},
 };
 
 pub struct SessionList;
 
 impl SessionList {
-    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState, theme: Theme) {
+    pub fn render(self, area: Rect, buf: &mut Buffer, state: &State, theme: Theme) {
         let Some(sessions) = state.sessions() else {
             self.render_no_list(area, buf, state);
             return;
         };
 
-        let cur_idx = state.current_session_index().unwrap_or_default();
+        let cur_idx = state.current_idx().unwrap_or_default();
 
         let items: Vec<_> = sessions
             .enumerate()
@@ -37,7 +37,7 @@ impl SessionList {
         self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        state: &AppState,
+        state: &State,
     ) {
         Spinner(state.frame_count()).render(area, buf);
     }

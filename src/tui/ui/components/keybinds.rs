@@ -5,7 +5,7 @@ use ratatui::{
 
 use crate::{
     config::Theme,
-    tui::state::{AppState, View},
+    tui::state::{Mode, State},
 };
 
 enum KeybindStyle {
@@ -42,38 +42,38 @@ impl Keybind {
     }
 }
 
-pub fn keybinds(state: &AppState, theme: Theme) -> Line<'_> {
-    let keybinds = match state.view() {
-        View::Normal => {
+pub fn keybinds(state: &State, theme: Theme) -> Line<'_> {
+    let keybinds = match state.mode() {
+        Mode::Normal => {
             vec![
                 Keybind::new("Up", "K"),
                 Keybind::new("Down", "J"),
                 Keybind::new("Create", "N"),
                 Keybind::new("Rename", "R"),
-                Keybind::new("Kill", "D").dimmed(!state.can_delete_session()),
+                Keybind::new("Kill", "D").dimmed(!state.can_delete()),
                 Keybind::new("Switch", "Enter"),
                 Keybind::new("Quit", "Q"),
             ]
         }
-        View::Rename => {
+        Mode::Rename => {
             vec![
                 Keybind::new("Abort", "Esc"),
                 Keybind::new("Rename", "Enter"),
             ]
         }
-        View::Create => {
+        Mode::Create => {
             vec![
                 Keybind::new("Abort", "Esc"),
                 Keybind::new("Create", "Enter"),
             ]
         }
-        View::Delete => {
+        Mode::Delete => {
             vec![
                 Keybind::new("No", "Esc"),
                 Keybind::new("Yes", "Enter").style(KeybindStyle::Danger),
             ]
         }
-        View::Search => vec![
+        Mode::Search => vec![
             Keybind::new("Cancel", "Esc"),
             Keybind::new("Search", "Enter"),
         ],

@@ -13,21 +13,21 @@ use crate::{
     tui::{
         event::{AppEvent, Event, EventHandler},
         helpers::fill_background,
-        state::{AppState, View},
+        state::{Mode, ModeType, State},
         ui::components::{self, Modal, SessionDetails, SessionList},
     },
 };
 
 pub struct App {
     config: Config,
-    state: AppState,
+    state: State,
     events: EventHandler,
 }
 
 impl App {
     pub fn new(config: Config) -> Result<Self> {
         Ok(Self {
-            state: AppState::new(config.clone())?,
+            state: State::new(&config)?,
             config,
             events: EventHandler::new(),
         })
@@ -52,45 +52,34 @@ impl App {
             Event::App(event) => self.handle_app_event(event),
         }
 
-        self.state.update_current_session();
-
         Ok(())
     }
 
     fn handle_key_event(&mut self, event: KeyEvent) {
-        match self.state.view() {
-            View::Normal => self.handle_normal_mode_key_event(event),
-            View::Delete => self.handle_confirm_mode_event(event),
-            View::Search | View::Rename | View::Create => self.handle_input_mode_key_event(event),
+        match self.state.mode().mode_type() {
+            ModeType::Normal => self.handle_normal_mode_key_event(event),
+            ModeType::Confirm => self.handle_confirm_mode_key_event(event),
+            ModeType::Input => self.handle_input_mode_key_event(event),
         }
     }
 
     fn handle_input_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Char('a') if event.modifiers == KeyModifiers::CONTROL => {
-                self.state.move_cursor_start();
+                self.state.cursor_start();
             }
             KeyCode::Char('e') if event.modifiers == KeyModifiers::CONTROL => {
-                self.state.move_cursor_end();
+                self.state.cursor_end();
             }
             KeyCode::Char('w') if event.modifiers == KeyModifiers::CONTROL => {
                 self.state.remove_till_start();
             }
-            KeyCode::Char(c) => self.state.insert_char(c),
+            KeyCode::Char(c) => self.state.put_char(c),
             KeyCode::Backspace => self.state.remove_char(),
-            KeyCode::Left => self.state.move_cursor_left(),
-            KeyCode::Right => self.state.move_cursor_right(),
-            KeyCode::Esc => match self.state.view() {
-                View::Rename | View::Create => self.state.normal_mode(),
-                View::Search => self.state.cancel_search(),
-                View::Normal | View::Delete => unreachable!(),
-            },
-            KeyCode::Enter => match self.state.view() {
-                View::Rename => self.state.rename_session(),
-                View::Create => self.create_session(),
-                View::Search => self.state.normal_mode(),
-                View::Normal | View::Delete => unreachable!(),
-            },
+            KeyCode::Left => self.state.cursor_left(),
+            KeyCode::Right => self.state.cursor_right(),
+            KeyCode::Esc => self.state.cancel_input(),
+            KeyCode::Enter => self.state.submit_input(&self.events),
             _ => {}
         }
     }
@@ -107,8 +96,8 @@ impl App {
             KeyCode::Down | KeyCode::Char('j') => self.state.cycle_next(),
             KeyCode::Up | KeyCode::Char('k') => self.state.cycle_prev(),
 
-            KeyCode::Enter => self.state.select_session(),
-            KeyCode::Esc => self.state.clear_search(),
+            KeyCode::Enter => self.state.select(),
+            KeyCode::Esc => self.state.cancel_search(),
 
             KeyCode::Char('s') => self.state.search_mode(),
             KeyCode::Char('r') => self.state.rename_mode(),
@@ -128,10 +117,10 @@ impl App {
         }
     }
 
-    fn handle_confirm_mode_event(&mut self, event: KeyEvent) {
+    fn handle_confirm_mode_key_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Esc => self.state.normal_mode(),
-            KeyCode::Enter => self.delete_session(),
+            KeyCode::Enter => self.state.submit_confirm(&self.events),
             _ => {}
         }
     }
@@ -139,19 +128,7 @@ impl App {
     fn handle_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Quit => self.state.quit(),
-            AppEvent::TmuxSessions => self.state.refetch_sessions(),
-        }
-    }
-
-    fn create_session(&mut self) {
-        if self.state.create_session().is_ok() {
-            self.events.request_refetch();
-        }
-    }
-
-    fn delete_session(&mut self) {
-        if self.state.delete_session().is_ok() {
-            self.events.request_refetch();
+            AppEvent::TmuxSessions => self.state.fetch(),
         }
     }
 
@@ -221,8 +198,8 @@ impl App {
         let area = self.get_area(area);
         fill_background(&old_area, &area, buf, self.config.theme);
 
-        match self.state.view() {
-            View::Normal | View::Search => {
+        match self.state.mode() {
+            Mode::Normal | Mode::Search => {
                 let splits = self.layout(area, buf);
                 SessionDetails.render(splits[1], buf, &self.state, self.config.theme);
 
@@ -234,63 +211,62 @@ impl App {
                 SessionList.render(layout[0], buf, &self.state, self.config.theme);
 
                 let area = layout[1];
-                if !self.state.search_buffer().is_empty() || self.state.view() == View::Search {
-                    let input = Paragraph::new(self.state.search_buffer())
+                if !self.state.search_input().buffer().is_empty()
+                    || self.state.mode() == Mode::Search
+                {
+                    let input = Paragraph::new(self.state.search_input().buffer())
                         .bg(self.config.theme.secondary_bg);
 
                     input.render(area.inner(Margin::new(1, 0)), buf);
                 }
 
-                if self.state.view() == View::Search {
+                if self.state.mode() == Mode::Search {
                     frame.set_cursor_position(Position::new(
-                        area.x + self.state.search_cursor() as u16 + 1,
+                        area.x + self.state.search_input().cursor() as u16 + 1,
                         area.y,
                     ));
                 }
             }
-            View::Rename => {
+            Mode::Rename => {
                 let title = format!(
                     "Rename {}",
-                    self.state.current_session().map(|s| s.name()).unwrap_or("")
+                    self.state.session_cell().map(|s| s.name()).unwrap_or("")
                 );
                 let area = Modal::new(&title)
                     .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
-                let input =
-                    Paragraph::new(self.state.input_buffer()).bg(self.config.theme.secondary_bg);
+                let input = Paragraph::new(self.state.rename_input().buffer())
+                    .bg(self.config.theme.secondary_bg);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
-                    area.x + self.state.input_cursor() as u16 + 1,
+                    area.x + self.state.rename_input().cursor() as u16 + 1,
                     area.y,
                 ));
             }
-            View::Create => {
+            Mode::Create => {
                 let area = Modal::new("Create")
                     .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
-                let input =
-                    Paragraph::new(self.state.input_buffer()).bg(self.config.theme.secondary_bg);
+                let input = Paragraph::new(self.state.create_input().buffer())
+                    .bg(self.config.theme.secondary_bg);
 
                 input.render(area.inner(Margin::new(1, 0)), buf);
                 frame.set_cursor_position(Position::new(
-                    area.x + self.state.input_cursor() as u16 + 1,
+                    area.x + self.state.create_input().cursor() as u16 + 1,
                     area.y,
                 ));
             }
-            View::Delete => {
+            Mode::Delete => {
                 let area = Modal::new("Delete")
                     .render(area, buf, &self.state, self.config.theme)
                     .centered_vertically(Constraint::Max(1));
 
                 Paragraph::new(format!(
                     "Are you sure you want to delete {}?",
-                    self.state
-                        .to_delete_session()
-                        .map(|s| s.name())
-                        .unwrap_or("")
+                    self.state.session_cell().map(|s| s.name()).unwrap_or("")
                 ))
                 .centered()
                 .render(area, buf);

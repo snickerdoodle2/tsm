@@ -2,7 +2,7 @@ use ratatui::{buffer::Buffer, layout::Rect, macros::constraints, prelude::*, wid
 
 use crate::{
     config::Theme,
-    tui::{helpers::fill_background, state::AppState, ui::components::keybinds},
+    tui::{helpers::fill_background, state::State, ui::components::keybinds},
 };
 
 pub struct Modal<'a>(&'a str);
@@ -12,7 +12,7 @@ impl<'a> Modal<'a> {
         Self(name)
     }
 
-    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState, theme: Theme) -> Rect {
+    pub fn render(self, area: Rect, buf: &mut Buffer, state: &State, theme: Theme) -> Rect {
         let old_area = area;
         let area = area
             .centered_horizontally(Constraint::Ratio(1, 2))

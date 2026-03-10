@@ -4,7 +4,7 @@ use ratatui::{
     widgets::{Cell, Row, Table},
 };
 
-use crate::{config::Theme, tui::state::AppState};
+use crate::{config::Theme, tui::state::State};
 pub struct SessionDetails;
 
 fn row<'a>(key: &'static str, value: impl Into<Cell<'a>>, theme: Theme) -> Row<'a> {
@@ -12,8 +12,8 @@ fn row<'a>(key: &'static str, value: impl Into<Cell<'a>>, theme: Theme) -> Row<'
 }
 
 impl SessionDetails {
-    pub fn render(self, area: Rect, buf: &mut Buffer, state: &AppState, theme: Theme) {
-        let Some(session) = state.current_session() else {
+    pub fn render(self, area: Rect, buf: &mut Buffer, state: &State, theme: Theme) {
+        let Some(session) = state.current() else {
             return;
         };
 
