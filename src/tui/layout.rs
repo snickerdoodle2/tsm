@@ -8,7 +8,7 @@ use ratatui::{
 use crate::{
     Config,
     tui::{
-        components::{Input, Modal, SessionDetails, SessionList},
+        components::{Input, Keybinds, Modal, SessionDetails, SessionList},
         state::{Mode, State},
     },
 };
@@ -90,6 +90,7 @@ impl<'a> Layout<'a> {
                 let mut modal =
                     Modal::new(self.title(self.state.mode()), &self.config.theme, 10, 50);
                 modal.render(area, buf);
+                Keybinds::new(self.state, &self.config.theme).render(modal.keybinds(), buf);
                 modal.area()
             }
         }

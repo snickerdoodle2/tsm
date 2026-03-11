@@ -29,11 +29,11 @@ impl<'a> Modal<'a> {
         }
     }
 
-    pub fn area(self) -> Rect {
+    pub fn area(&self) -> Rect {
         self.area.unwrap()
     }
 
-    pub fn keybinds(self) -> Rect {
+    pub fn keybinds(&self) -> Rect {
         self.keybinds.unwrap()
     }
 }
