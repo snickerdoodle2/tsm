@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ratatui::{
     Frame, layout,
     macros::{constraint, constraints},
@@ -28,7 +30,7 @@ impl<'a> Layout<'a> {
         let buf = frame.buffer_mut();
 
         let (handle_events, cursor) = match area.width {
-            100.. => (true, None),
+            100.. => self.large_screen(area, buf),
             40.. => self.medium_screen(area, buf),
             0.. => self.small_screen(area, buf),
         };
@@ -40,6 +42,44 @@ impl<'a> Layout<'a> {
         handle_events
     }
 
+    fn large_screen(&self, area: Rect, buf: &mut Buffer) -> (bool, Option<(u16, u16)>) {
+        let layout = layout::Layout::vertical(constraints![*=1, ==1]).split(area);
+        Keybinds::new(self.state, &self.config.theme).render(layout[1], buf);
+        let layout = self.large_layout(layout[0], buf);
+
+        let mut cursor = None;
+
+        let block = self.get_area(Mode::Normal, layout[0], buf);
+        if let Some(c) = self.render_normal(block, buf) {
+            cursor = Some(c);
+        }
+
+        let block = self.get_area(Mode::Details, layout[1], buf);
+        if let Some(c) = self.render_details(block, buf) {
+            cursor = Some(c);
+        }
+
+        #[cfg(feature = "debug")]
+        {
+            let block = self.get_area(Mode::Debug, layout[2], buf);
+            if let Some(c) = self.render_debug(block, buf) {
+                cursor = Some(c);
+            }
+        }
+
+        (true, cursor)
+    }
+
+    fn large_layout(&self, area: Rect, buf: &mut Buffer) -> Rc<[Rect]> {
+        let layout = if cfg!(feature = "debug") {
+            layout::Layout::horizontal(constraints![*=1, *=1, *=1])
+        } else {
+            layout::Layout::horizontal(constraints![*=1, *=1])
+        };
+
+        layout.split(area)
+    }
+
     fn medium_screen(&self, area: Rect, buf: &mut Buffer) -> (bool, Option<(u16, u16)>) {
         let area = if !self.state.mode().is_modal() {
             let layout = layout::Layout::vertical(constraints![==100%, ==1]).split(area);
@@ -49,7 +89,7 @@ impl<'a> Layout<'a> {
             area
         };
 
-        let area = self.get_area(area, buf);
+        let area = self.get_area(self.state.mode(), area, buf);
 
         let cursor = match self.state.mode() {
             Mode::Normal | Mode::Search => self.render_normal(area, buf),
@@ -89,24 +129,24 @@ impl<'a> Layout<'a> {
         Style::default().bold().fg(self.config.theme.accent)
     }
 
-    fn get_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
-        match self.state.mode() {
-            Mode::Normal | Mode::Search | Mode::Details => self.full_area(area, buf),
-            Mode::Rename | Mode::Create | Mode::Delete => self.modal_area(area, buf),
+    fn get_area(&self, mode: Mode, area: Rect, buf: &mut Buffer) -> Rect {
+        match mode {
+            Mode::Normal | Mode::Search | Mode::Details => self.full_area(mode, area, buf),
+            Mode::Rename | Mode::Create | Mode::Delete => self.modal_area(mode, area, buf),
             #[cfg(feature = "debug")]
-            Mode::Debug => self.full_area(area, buf),
+            Mode::Debug => self.full_area(mode, area, buf),
         }
     }
 
-    fn full_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
+    fn full_area(&self, mode: Mode, area: Rect, buf: &mut Buffer) -> Rect {
         let block = Block::bordered()
-            .title_top(Line::styled(self.title(self.state.mode()), self.title_style()).centered());
+            .title_top(Line::styled(self.title(mode), self.title_style()).centered());
         (&block).render(area, buf);
         block.inner(area)
     }
 
-    fn modal_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
-        let mut modal = Modal::new(self.title(self.state.mode()), &self.config.theme, 10, 50);
+    fn modal_area(&self, mode: Mode, area: Rect, buf: &mut Buffer) -> Rect {
+        let mut modal = Modal::new(self.title(mode), &self.config.theme, 10, 50);
         modal.render(area, buf);
         Keybinds::new(self.state, &self.config.theme).render(modal.keybinds(), buf);
         modal.area()
