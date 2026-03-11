@@ -131,13 +131,13 @@ impl<'a> Layout<'a> {
 
     fn title(&self, mode: Mode) -> &'static str {
         match mode {
-            Mode::Normal | Mode::Search => "Sessions",
-            Mode::Details => "Details",
-            Mode::Rename => "Rename",
-            Mode::Create => "Create",
-            Mode::Delete => "Delete",
+            Mode::Normal | Mode::Search => " Sessions ",
+            Mode::Details => " Details ",
+            Mode::Rename => " Rename ",
+            Mode::Create => " Create ",
+            Mode::Delete => " Delete ",
             #[cfg(feature = "debug")]
-            Mode::Debug => "Debug",
+            Mode::Debug => " Debug ",
         }
     }
 
@@ -155,7 +155,14 @@ impl<'a> Layout<'a> {
     }
 
     fn full_area(&self, mode: Mode, area: Rect, buf: &mut Buffer) -> Rect {
+        let border_style = if mode == self.state.mode() {
+            Style::default().fg(self.config.theme.accent)
+        } else {
+            Style::default()
+        };
+
         let block = Block::bordered()
+            .border_style(border_style)
             .title_top(Line::styled(self.title(mode), self.title_style()).centered());
         (&block).render(area, buf);
         block.inner(area)
