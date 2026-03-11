@@ -96,11 +96,7 @@ impl<'a> Widget for Keybinds<'a> {
                 ]
             }
             Mode::Details => {
-                vec![
-                    Keybind::new("Up", "K", self.theme),
-                    Keybind::new("Down", "J", self.theme),
-                    Keybind::new("Quit", "Q", self.theme),
-                ]
+                vec![Keybind::new("Quit", "Q", self.theme)]
             }
             Mode::Rename => {
                 vec![
@@ -127,13 +123,19 @@ impl<'a> Widget for Keybinds<'a> {
         };
 
         let mut constraints = Vec::with_capacity(keybinds.len());
-        let mut width = keybinds.len() as u16 - 1;
+        let max_width = area.width;
+        let mut width = 0;
 
         for kb in &keybinds {
             let kb_width = kb.width();
-            width += kb_width;
+            // Do not show if it would overflow width
+            if width + kb_width + 1 >= max_width {
+                break;
+            }
+            width += kb_width + 1;
             constraints.push(constraint!(==kb_width));
         }
+        width -= 1;
 
         let layout = Layout::horizontal(constraints)
             .spacing(1)

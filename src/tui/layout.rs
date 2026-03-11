@@ -41,6 +41,14 @@ impl<'a> Layout<'a> {
     }
 
     fn medium_screen(&self, area: Rect, buf: &mut Buffer) -> (bool, Option<(u16, u16)>) {
+        let area = if !self.state.mode().is_modal() {
+            let layout = layout::Layout::vertical(constraints![==100%, ==1]).split(area);
+            Keybinds::new(self.state, &self.config.theme).render(layout[1], buf);
+            layout[0]
+        } else {
+            area
+        };
+
         let area = self.get_area(area, buf);
 
         let cursor = match self.state.mode() {

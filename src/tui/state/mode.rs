@@ -17,6 +17,13 @@ impl Mode {
             Mode::Delete => ModeType::Confirm,
         }
     }
+
+    pub fn is_modal(&self) -> bool {
+        match self {
+            Mode::Normal | Mode::Details | Mode::Search => false,
+            Mode::Rename | Mode::Create | Mode::Delete => true,
+        }
+    }
 }
 
 pub enum ModeType {
