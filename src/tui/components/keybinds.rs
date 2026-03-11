@@ -98,6 +98,10 @@ impl<'a> Widget for Keybinds<'a> {
             Mode::Details => {
                 vec![Keybind::new("Quit", "Q", self.theme)]
             }
+            #[cfg(feature = "debug")]
+            Mode::Debug => {
+                vec![Keybind::new("Quit", "Q", self.theme)]
+            }
             Mode::Rename => {
                 vec![
                     Keybind::new("Abort", "Esc", self.theme),

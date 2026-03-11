@@ -57,6 +57,8 @@ impl<'a> Layout<'a> {
             Mode::Rename => self.render_rename(area, buf),
             Mode::Create => None,
             Mode::Delete => None,
+            #[cfg(feature = "debug")]
+            Mode::Debug => self.render_debug(area, buf),
         };
 
         (true, cursor)
@@ -78,6 +80,8 @@ impl<'a> Layout<'a> {
             Mode::Rename => "Rename",
             Mode::Create => "Create",
             Mode::Delete => "Delete",
+            #[cfg(feature = "debug")]
+            Mode::Debug => "Debug",
         }
     }
 
@@ -87,21 +91,25 @@ impl<'a> Layout<'a> {
 
     fn get_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
         match self.state.mode() {
-            Mode::Normal | Mode::Search | Mode::Details => {
-                let block = Block::bordered().title_top(
-                    Line::styled(self.title(self.state.mode()), self.title_style()).centered(),
-                );
-                (&block).render(area, buf);
-                block.inner(area)
-            }
-            Mode::Rename | Mode::Create | Mode::Delete => {
-                let mut modal =
-                    Modal::new(self.title(self.state.mode()), &self.config.theme, 10, 50);
-                modal.render(area, buf);
-                Keybinds::new(self.state, &self.config.theme).render(modal.keybinds(), buf);
-                modal.area()
-            }
+            Mode::Normal | Mode::Search | Mode::Details => self.full_area(area, buf),
+            Mode::Rename | Mode::Create | Mode::Delete => self.modal_area(area, buf),
+            #[cfg(feature = "debug")]
+            Mode::Debug => self.full_area(area, buf),
         }
+    }
+
+    fn full_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
+        let block = Block::bordered()
+            .title_top(Line::styled(self.title(self.state.mode()), self.title_style()).centered());
+        (&block).render(area, buf);
+        block.inner(area)
+    }
+
+    fn modal_area(&self, area: Rect, buf: &mut Buffer) -> Rect {
+        let mut modal = Modal::new(self.title(self.state.mode()), &self.config.theme, 10, 50);
+        modal.render(area, buf);
+        Keybinds::new(self.state, &self.config.theme).render(modal.keybinds(), buf);
+        modal.area()
     }
 
     fn render_normal(&self, area: Rect, buf: &mut Buffer) -> Option<(u16, u16)> {
@@ -143,6 +151,12 @@ impl<'a> Layout<'a> {
 
     fn render_details(&self, area: Rect, buf: &mut Buffer) -> Option<(u16, u16)> {
         SessionDetails::new(self.state.current(), &self.config.theme).render(area, buf);
+        None
+    }
+
+    #[cfg(feature = "debug")]
+    fn render_debug(&self, area: Rect, buf: &mut Buffer) -> Option<(u16, u16)> {
+        Paragraph::new(self.state.debug_info()).render(area, buf);
         None
     }
 }

@@ -3,6 +3,8 @@ pub enum Mode {
     #[default]
     Normal,
     Details,
+    #[cfg(feature = "debug")]
+    Debug,
     Search,
     Rename,
     Create,
@@ -15,6 +17,8 @@ impl Mode {
             Mode::Normal | Mode::Details => ModeType::Normal,
             Mode::Search | Mode::Rename | Mode::Create => ModeType::Input,
             Mode::Delete => ModeType::Confirm,
+            #[cfg(feature = "debug")]
+            Mode::Debug => ModeType::Normal,
         }
     }
 
@@ -22,6 +26,8 @@ impl Mode {
         match self {
             Mode::Normal | Mode::Details | Mode::Search => false,
             Mode::Rename | Mode::Create | Mode::Delete => true,
+            #[cfg(feature = "debug")]
+            Mode::Debug => false,
         }
     }
 }
