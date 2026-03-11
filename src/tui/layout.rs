@@ -43,6 +43,20 @@ impl<'a> Layout<'a> {
     }
 
     fn large_screen(&self, area: Rect, buf: &mut Buffer) -> (bool, Option<(u16, u16)>) {
+        if self.state.mode().is_modal() {
+            let area = self.get_area(self.state.mode(), area, buf);
+            let cursor = match self.state.mode() {
+                Mode::Rename => self.render_rename(area, buf),
+                Mode::Create => self.render_create(area, buf),
+                Mode::Delete => self.render_delete(area, buf),
+                Mode::Normal | Mode::Details | Mode::Search => unreachable!(),
+                #[cfg(feature = "debug")]
+                Mode::Debug => unreachable!(),
+            };
+
+            return (true, cursor);
+        }
+
         let layout = layout::Layout::vertical(constraints![*=1, ==1]).split(area);
         Keybinds::new(self.state, &self.config.theme).render(layout[1], buf);
         let layout = self.large_layout(layout[0]);
