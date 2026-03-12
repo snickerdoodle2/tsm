@@ -1,4 +1,4 @@
-use std::{fmt::Display, process::Command, rc::Rc, string};
+use std::{env, fmt::Display, process::Command, rc::Rc, string};
 
 use crate::tmux::{Field, Fieldset, ParseError, Session};
 
@@ -8,6 +8,8 @@ pub enum ClientError {
     Io(#[from] std::io::Error),
     #[error("utf-8: {0}")]
     Utf8(#[from] string::FromUtf8Error),
+    #[error("var: {0}")]
+    Var(#[from] env::VarError),
     #[error("tmux server is not running")]
     NoServer,
     #[error("tmux {0}: {1}")]
@@ -88,14 +90,28 @@ where
 #[derive(Default)]
 pub struct Client {
     separator: Rc<str>,
+    attached: bool,
 }
 
 impl Client {
-    pub fn new(separator: Rc<str>) -> Self {
-        Self { separator }
+    pub fn new(separator: Rc<str>) -> Result<Self, ClientError> {
+        let attached = match env::var("TMUX") {
+            Ok(_) => true,
+            Err(env::VarError::NotPresent) => false,
+            Err(e) => return Err(ClientError::Var(e)),
+        };
+
+        Ok(Self {
+            separator,
+            attached,
+        })
     }
 
-    pub fn current_session(&self) -> Result<usize, ClientError> {
+    pub fn current_session(&self) -> Result<Option<usize>, ClientError> {
+        if !self.attached {
+            return Ok(None);
+        }
+
         let fieldset = Fieldset::new(Box::new([Field::ID]), self.separator.clone());
 
         let data = run(Subcommand::DisplayMessage, Some(&fieldset), [])?;
@@ -105,7 +121,7 @@ impl Client {
             .id
             .ok_or(ParseError::Missing("id"))?;
 
-        Ok(id)
+        Ok(Some(id))
     }
 
     pub fn create_session(&self, name: &str) -> Result<(), ClientError> {
