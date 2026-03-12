@@ -25,12 +25,12 @@ pub struct State {
     sessions: Sessions,
 
     session_cell: Option<tmux::Session>,
-    attached_id: usize,
+    attached_id: Option<usize>,
 }
 
 impl State {
     pub fn new(config: &Config) -> Result<Self> {
-        let tmux_client = tmux::Client::new(config.separator.clone());
+        let tmux_client = tmux::Client::new(config.separator.clone())?;
         Ok(Self {
             attached_id: tmux_client.current_session()?,
             tmux_client,
@@ -269,9 +269,13 @@ impl State {
     }
 
     pub fn can_delete(&self) -> bool {
+        let Some(attached_id) = self.attached_id else {
+            return true;
+        };
+
         self.sessions
             .current()
-            .is_some_and(|s| !s.is_attached(self.attached_id))
+            .is_some_and(|s| !s.is_attached(attached_id))
     }
 
     fn rename(&mut self) {
@@ -319,13 +323,16 @@ buffer: {:?}
 cursor: {:?}
 frame_count: {}
 repeat: {:?}
-id: {:?}"#,
+id: {:?}
+attached_id: {:?}
+"#,
             self.mode,
             input.map(Input::buffer),
             input.map(Input::cursor),
             self.frame_count,
             self.repeat,
-            self.sessions.current().map(tmux::Session::id)
+            self.sessions.current().map(tmux::Session::id),
+            self.attached_id,
         )
     }
 }
