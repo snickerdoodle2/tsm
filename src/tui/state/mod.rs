@@ -371,7 +371,7 @@ buffer: {:?}
 cursor: {:?}
 frame_count: {}
 repeat: {:?}
-id: {:?}
+current: {:?}
 attached_id: {:?}
 "#,
             self.mode,
@@ -379,7 +379,7 @@ attached_id: {:?}
             input.map(Input::cursor),
             self.frame_count,
             self.repeat,
-            self.sessions.current().map(tmux::Session::id),
+            self.sessions.current(),
             self.attached_id,
         )
     }
