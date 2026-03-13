@@ -10,7 +10,7 @@ use nom::{
 use anyhow::{Result, anyhow};
 
 #[derive(Debug, Clone)]
-enum LayoutType {
+pub enum LayoutType {
     Horizontal(Vec<Layout>),
     Vertical(Vec<Layout>),
     Pane(usize),
@@ -20,9 +20,25 @@ enum LayoutType {
 pub struct Layout {
     pub(in crate::tmux) width: u16,
     pub(in crate::tmux) height: u16,
+    #[allow(dead_code)]
     pub(in crate::tmux) offset_x: u16,
+    #[allow(dead_code)]
     pub(in crate::tmux) offset_y: u16,
     pub(in crate::tmux) layout_type: LayoutType,
+}
+
+impl Layout {
+    pub fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn layout_type(&self) -> &LayoutType {
+        &self.layout_type
+    }
 }
 
 fn parse_checksum(input: &str) -> IResult<&str, u32> {

@@ -25,6 +25,10 @@ impl Session {
         self.attached
     }
 
+    pub fn layout(&self) -> &Layout {
+        &self.layout
+    }
+
     pub fn created(&self) -> String {
         chrono_humanize::HumanTime::from(self.created).to_string()
     }
