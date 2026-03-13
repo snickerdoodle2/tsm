@@ -251,7 +251,9 @@ impl<'a> Layout<'a> {
 
     #[cfg(feature = "debug")]
     fn render_debug(&self, area: Rect, buf: &mut Buffer) -> Option<(u16, u16)> {
-        Paragraph::new(self.state.debug_info()).render(area, buf);
+        Paragraph::new(self.state.debug_info())
+            .wrap(Wrap { trim: true })
+            .render(area, buf);
         None
     }
 }
