@@ -115,7 +115,6 @@ impl Client {
         let fieldset = Fieldset::new(Box::new([Field::ID]), self.separator.clone());
 
         let data = run(Subcommand::DisplayMessage, Some(&fieldset), [])?;
-        dbg!(&data);
         let id = fieldset
             .parse_session(data.trim())?
             .id

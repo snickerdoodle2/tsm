@@ -1,7 +1,6 @@
-mod app;
-mod event;
-mod helpers;
-mod state;
-mod ui;
+pub mod event;
+pub mod state;
 
-pub use app::App;
+mod components;
+mod layout;
+pub use layout::Layout;

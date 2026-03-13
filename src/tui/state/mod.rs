@@ -4,7 +4,7 @@ mod sessions;
 use std::{mem, num::NonZeroUsize};
 
 use anyhow::Result;
-use input::Input;
+pub use input::Input;
 pub use mode::{Mode, ModeType};
 use sessions::Sessions;
 
@@ -67,6 +67,19 @@ impl State {
         self.mode = Mode::Normal;
     }
 
+    pub fn details_mode(&mut self) {
+        debug_assert!(self.mode != Mode::Details);
+        if self.sessions.current().is_some() {
+            self.mode = Mode::Details;
+        }
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn debug_mode(&mut self) {
+        debug_assert!(self.mode != Mode::Debug);
+        self.mode = Mode::Debug;
+    }
+
     pub fn search_mode(&mut self) {
         debug_assert!(self.mode == Mode::Normal);
         self.mode = Mode::Search;
@@ -78,6 +91,29 @@ impl State {
             self.rename_input.set(session.name());
             self.session_cell = Some(session);
             self.mode = Mode::Rename;
+        }
+    }
+
+    pub fn mode_next(&mut self) {
+        match self.mode {
+            Mode::Normal => self.details_mode(),
+            Mode::Details => {
+                #[cfg(feature = "debug")]
+                self.debug_mode();
+            }
+            #[cfg(feature = "debug")]
+            Mode::Debug => {}
+            Mode::Create | Mode::Search | Mode::Rename | Mode::Delete => unreachable!(),
+        }
+    }
+
+    pub fn mode_prev(&mut self) {
+        match self.mode {
+            Mode::Normal => {}
+            Mode::Details => self.normal_mode(),
+            #[cfg(feature = "debug")]
+            Mode::Debug => self.details_mode(),
+            Mode::Create | Mode::Search | Mode::Rename | Mode::Delete => unreachable!(),
         }
     }
 
@@ -156,7 +192,9 @@ impl State {
             Mode::Rename => self.rename(),
             Mode::Create => self.create(events),
             Mode::Search => self.normal_mode(),
-            Mode::Normal | Mode::Delete => unreachable!(),
+            Mode::Normal | Mode::Details | Mode::Delete => unreachable!(),
+            #[cfg(feature = "debug")]
+            Mode::Debug => unreachable!(),
         }
     }
 
@@ -191,12 +229,15 @@ impl State {
         self.maybe_update_filter();
     }
 
+    #[allow(dead_code)]
     fn input(&self) -> Option<&Input> {
         match self.mode {
             Mode::Search => Some(&self.search_input),
             Mode::Rename => Some(&self.rename_input),
             Mode::Create => Some(&self.create_input),
-            Mode::Normal | Mode::Delete => None,
+            Mode::Normal | Mode::Details | Mode::Delete => None,
+            #[cfg(feature = "debug")]
+            Mode::Debug => None,
         }
     }
 
@@ -205,7 +246,9 @@ impl State {
             Mode::Search => &mut self.search_input,
             Mode::Rename => &mut self.rename_input,
             Mode::Create => &mut self.create_input,
-            Mode::Normal | Mode::Delete => unreachable!(),
+            Mode::Normal | Mode::Details | Mode::Delete => unreachable!(),
+            #[cfg(feature = "debug")]
+            Mode::Debug => unreachable!(),
         }
     }
 
@@ -221,7 +264,11 @@ impl State {
     pub fn submit_confirm(&mut self, events: &EventHandler) {
         match self.mode {
             Mode::Delete => self.delete(events),
-            Mode::Normal | Mode::Search | Mode::Rename | Mode::Create => unreachable!(),
+            Mode::Normal | Mode::Details | Mode::Search | Mode::Rename | Mode::Create => {
+                unreachable!()
+            }
+            #[cfg(feature = "debug")]
+            Mode::Debug => unreachable!(),
         }
     }
 
@@ -315,6 +362,7 @@ impl State {
     // ********
     // * MISC *
     // ********
+    #[cfg(feature = "debug")]
     pub fn debug_info(&self) -> String {
         let input = self.input();
         format!(
