@@ -1,9 +1,9 @@
 mod client;
 mod fieldset;
+mod layout;
 mod session;
-mod window;
 
 pub use client::Client;
 use fieldset::{Field, Fieldset, ParseError};
+pub use layout::Layout;
 pub use session::Session;
-pub use window::Window;
