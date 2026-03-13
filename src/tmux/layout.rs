@@ -3,11 +3,11 @@ use nom::{
     bytes::complete::{tag, take_until1},
     character::complete,
     combinator::opt,
-    multi::{many0, separated_list0},
-    sequence::{self, delimited, separated_pair},
+    multi::separated_list0,
+    sequence::{delimited, separated_pair},
 };
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Result, anyhow};
 
 #[derive(Debug, Clone)]
 enum LayoutType {
@@ -18,11 +18,11 @@ enum LayoutType {
 
 #[derive(Debug, Clone)]
 pub struct Layout {
-    width: u16,
-    height: u16,
-    offset_x: u16,
-    offset_y: u16,
-    layout_type: LayoutType,
+    pub(in crate::tmux) width: u16,
+    pub(in crate::tmux) height: u16,
+    pub(in crate::tmux) offset_x: u16,
+    pub(in crate::tmux) offset_y: u16,
+    pub(in crate::tmux) layout_type: LayoutType,
 }
 
 fn parse_checksum(input: &str) -> IResult<&str, u32> {
@@ -215,6 +215,6 @@ mod tests {
         assert_eq!(rhs.height, 31);
         assert_eq!(rhs.offset_x, 127);
         assert_eq!(rhs.offset_y, 33);
-        assert_matches!(&lhs.layout_type, LayoutType::Pane(14));
+        assert_matches!(&rhs.layout_type, LayoutType::Pane(14));
     }
 }

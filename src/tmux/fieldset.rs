@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
-use crate::tmux::session::Session;
+use crate::tmux::{Layout, layout::parse_layout, session::Session};
 
 pub enum Field {
     ID,
@@ -11,6 +11,7 @@ pub enum Field {
     Created,
     Activity,
     Attached,
+    Layout,
 }
 
 impl Field {
@@ -21,6 +22,7 @@ impl Field {
             Field::Created => "session_created",
             Field::Activity => "session_activity",
             Field::Attached => "session_attached",
+            Field::Layout => "window_visible_layout",
         }
     }
 }
@@ -46,6 +48,7 @@ impl Default for Fieldset {
                 Field::Created,
                 Field::Activity,
                 Field::Attached,
+                Field::Layout,
             ]),
             separator: ";".into(),
         }
@@ -59,6 +62,7 @@ pub struct SessionBuilder {
     pub created: Option<DateTime<Utc>>,
     pub last_activity: Option<DateTime<Utc>>,
     pub attached: Option<u8>,
+    pub layout: Option<Layout>,
 }
 
 impl SessionBuilder {
@@ -150,6 +154,18 @@ impl SessionBuilder {
         Ok(())
     }
 
+    fn layout(&mut self, data: &str) -> Result<(), ParseError> {
+        const NAME: &str = "layout";
+
+        if self.layout.is_some() {
+            return Err(ParseError::DuplicateField(NAME));
+        }
+
+        self.layout = Some(parse_layout(data).map_err(|e| ParseError::Parsing(NAME, e))?);
+
+        Ok(())
+    }
+
     pub fn build(self) -> Result<Session, ParseError> {
         Ok(Session {
             id: self.id.ok_or(ParseError::Missing("id"))?,
@@ -159,6 +175,7 @@ impl SessionBuilder {
                 .last_activity
                 .ok_or(ParseError::Missing("last activity"))?,
             attached: self.attached.ok_or(ParseError::Missing("attached"))?,
+            layout: self.layout.ok_or(ParseError::Missing("layout"))?,
         })
     }
 }
@@ -201,6 +218,7 @@ impl Fieldset {
                 Field::Created => builder.created(data)?,
                 Field::Activity => builder.last_activity(data)?,
                 Field::Attached => builder.attached(data)?,
+                Field::Layout => builder.layout(data)?,
             }
         }
 
@@ -217,7 +235,7 @@ mod tests {
     #[test]
     fn formats_default_string() {
         let fieldset = Fieldset::default();
-        let expected = "#{session_id};#{session_name};#{session_created};#{session_activity};#{session_attached}";
+        let expected = "#{session_id};#{session_name};#{session_created};#{session_activity};#{session_attached};#{window_visible_layout}";
 
         assert_eq!(fieldset.format(), expected);
     }
@@ -229,7 +247,7 @@ mod tests {
             ..Default::default()
         };
 
-        let expected = "#{session_id}:)#{session_name}:)#{session_created}:)#{session_activity}:)#{session_attached}";
+        let expected = "#{session_id}:)#{session_name}:)#{session_created}:)#{session_activity}:)#{session_attached}:)#{window_visible_layout}";
 
         assert_eq!(fieldset.format(), expected);
     }
@@ -237,7 +255,7 @@ mod tests {
     #[test]
     fn parses_valid_data() {
         let fieldset = Fieldset::default();
-        let line = "$42;foo;2281580400;2281623600;67";
+        let line = "$42;foo;2281580400;2281623600;67;c3ff,168x64,0,0,2";
 
         let builder = assert_ok!(fieldset.parse_session(line));
         let session = assert_ok!(builder.build());
@@ -253,6 +271,8 @@ mod tests {
             Utc.with_ymd_and_hms(2042, 4, 20, 16, 20, 0).unwrap()
         );
         assert_eq!(session.attached, 67);
+        assert_eq!(session.layout.width, 168);
+        assert_eq!(session.layout.height, 64);
     }
 
     #[test]
